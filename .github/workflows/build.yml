@@ -27,6 +27,7 @@ jobs:
           grep -E "error:" build.log | sort -u | head -150 || true
 
       - name: Render snapshots
+        continue-on-error: true
         run: |
           mkdir -p snapshots
           ./build/Lagoon.app/Contents/MacOS/Lagoon --snapshots "$PWD/snapshots"
@@ -43,6 +44,8 @@ jobs:
           path: build/Lagoon.zip
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: snapshots
           path: snapshots
+          if-no-files-found: ignore

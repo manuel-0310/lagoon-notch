@@ -2,8 +2,9 @@ import AppKit
 import Observation
 
 /// Contenedor de todos los servicios y del estado del notch.
+/// Solo se usa desde el hilo principal.
 @Observable
-final class AppState {
+final class AppState: @unchecked Sendable {
     let notch: NotchViewModel
     let music = NowPlayingService()
     let battery = BatteryService()

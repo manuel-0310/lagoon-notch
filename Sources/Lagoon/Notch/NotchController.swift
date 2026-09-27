@@ -14,6 +14,7 @@ final class NotchController {
     private var dragChangeCount = 0
     private var dragChecked = false
     private var draggingFiles = false
+    private var dragWatchdog: DispatchWorkItem?
     private var scrollAccumulator: CGFloat = 0
     private var scrollLocked = false
 
@@ -147,10 +148,12 @@ final class NotchController {
             }
             if draggingFiles {
                 model.fileDrag(near: model.dropActivationRect.contains(location))
+                armDragWatchdog()
             }
         case .leftMouseUp:
             if draggingFiles {
                 draggingFiles = false
+                dragWatchdog?.cancel()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
                     self?.app.notch.fileDragEnded()
                 }
@@ -159,6 +162,23 @@ final class NotchController {
             break
         }
         updateMouse(at: location)
+    }
+
+    /// Por si el sistema no entrega el "soltar" durante un arrastre: sale del modo "soltar"
+    /// en cuanto no hay ningún botón pulsado.
+    private func armDragWatchdog() {
+        dragWatchdog?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.draggingFiles else { return }
+            if NSEvent.pressedMouseButtons == 0 {
+                self.draggingFiles = false
+                self.app.notch.fileDragEnded()
+            } else {
+                self.armDragWatchdog()
+            }
+        }
+        dragWatchdog = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
     }
 
     private func updateMouse(at location: CGPoint) {
