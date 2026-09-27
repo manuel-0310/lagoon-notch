@@ -4,6 +4,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var state: AppState?
     private var notchController: NotchController?
+    private var lockScreen: LockScreenController?
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -17,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.start()
         notchController = controller
         state.startServices()
+
+        let lockScreen = LockScreenController(app: state)
+        lockScreen.start()
+        self.lockScreen = lockScreen
 
         if !Prefs.bool(Prefs.didShowWelcome) {
             Prefs.defaults.set(true, forKey: Prefs.didShowWelcome)
@@ -34,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         notchController?.stop()
+        lockScreen?.stop()
         state?.camera.stop()
         state?.music.stop()
         state?.claude.stop()
@@ -48,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "Ajustes de Lagoon"
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
-            window.setContentSize(NSSize(width: 520, height: 600))
+            window.setContentSize(NSSize(width: 560, height: 680))
             window.center()
             settingsWindow = window
         }
