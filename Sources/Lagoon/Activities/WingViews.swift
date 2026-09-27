@@ -9,13 +9,35 @@ struct WingsView: View {
     @Environment(AppState.self) var app
     let content: WingContent
 
+    /// La portada queda a la misma distancia del borde izquierdo que del inferior (y del superior).
+    private var artworkInset: CGFloat {
+        max(4, (app.notch.geometry.notchHeight - 20) / 2)
+    }
+
+    private var artworkSize: CGFloat {
+        app.notch.geometry.notchHeight - 2 * artworkInset
+    }
+
+    /// Esquinas concéntricas con la esquina de la forma (radio 14).
+    private var artworkRadius: CGFloat {
+        max(5, min(14 - artworkInset, artworkSize * 0.35))
+    }
+
+    private var showsArtwork: Bool {
+        switch content {
+        case .music, .musicPlus: return true
+        default: return false
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             left
+                .padding(.leading, showsArtwork ? artworkInset : 12)
             Spacer(minLength: 0)
             right
+                .padding(.trailing, content == .music ? artworkInset : 12)
         }
-        .padding(.horizontal, 12)
         .frame(height: app.notch.geometry.notchHeight)
     }
 
@@ -23,7 +45,7 @@ struct WingsView: View {
     private var left: some View {
         switch content {
         case .music, .musicPlus:
-            ArtworkView(image: app.music.artwork, size: 20, radius: 5)
+            ArtworkView(image: app.music.artwork, size: artworkSize, radius: artworkRadius)
                 .id(app.music.track?.id ?? "")
                 .transition(.artworkFlip)
         case .timer, .stopwatch:
