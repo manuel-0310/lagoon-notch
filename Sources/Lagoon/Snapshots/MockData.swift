@@ -48,6 +48,74 @@ enum MockData {
         timers.pomodoroCycle = 2
     }
 
+    // MARK: - Funciones nuevas
+
+    static var claudeRequest: ClaudePermissionRequest {
+        ClaudePermissionRequest(id: "req-1", sessionID: "s1", project: "lagoon-notch", tool: "Bash",
+                                summary: "swift build -c release", detail: "Compilar en modo release",
+                                canAlwaysAllow: true)
+    }
+
+    static func claudeSessions(_ app: AppState) {
+        let claude = app.claude
+        claude.isConnected = true
+        var main = ClaudeSession(id: "s1", cwd: "/Users/ana/lagoon-notch")
+        main.state = .tool("Edit")
+        main.updated = now.addingTimeInterval(-20)
+        main.model = "Opus"
+        main.costUSD = 1.84
+        main.contextPercent = 42
+        var other = ClaudeSession(id: "s2", cwd: "/Users/ana/web")
+        other.state = .done
+        other.updated = now.addingTimeInterval(-9 * 60)
+        claude.sessions = [main, other]
+        claude.fiveHour = ClaudeRateLimit(usedPercent: 38, resetsAt: at(13, 0))
+        claude.sevenDay = ClaudeRateLimit(usedPercent: 61, resetsAt: now.addingTimeInterval(3 * 86_400))
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let totals = [820_000, 1_450_000, 300_000, 0, 2_100_000, 960_000, 1_240_000]
+        claude.weekly = totals.enumerated().map { offset, total in
+            let day = calendar.date(byAdding: .day, value: offset - 6, to: today) ?? today
+            return ClaudeDailyUsage(day: day, input: total / 10, output: total / 5, cacheWrite: total - total / 10 - total / 5,
+                                    cacheRead: total * 8)
+        }
+    }
+
+    static func shortcuts(_ app: AppState) {
+        app.shortcuts.favorites = ["Modo estudio", "Enviar ETA a casa", "Texto de la captura"]
+        app.shortcuts.apps = [
+            FavoriteApp(path: "/System/Applications/Notes.app", name: "Notas"),
+            FavoriteApp(path: "/System/Applications/Calculator.app", name: "Calculadora"),
+            FavoriteApp(path: "/Applications/Safari.app", name: "Safari"),
+        ]
+    }
+
+    static func system(_ app: AppState) {
+        let system = app.system
+        let wave: (Double, Double, Int) -> [Double] = { base, amplitude, seed in
+            (0..<SystemMonitorService.historyLength).map { i in
+                max(0, base + amplitude * sin(Double(i + seed) / 5) + amplitude * 0.4 * cos(Double(i * 3 + seed) / 7))
+            }
+        }
+        system.cpuHistory = wave(0.24, 0.12, 0)
+        system.cpu = system.cpuHistory.last ?? 0.23
+        system.coreCount = 10
+        system.memoryTotal = 16 * 1_073_741_824
+        system.memoryUsed = UInt64(11.2 * 1_073_741_824)
+        system.memoryHistory = wave(0.7, 0.03, 4)
+        system.gpu = 0.12
+        system.gpuHistory = wave(0.12, 0.08, 9)
+        system.networkHistory = wave(900_000, 600_000, 2)
+        system.networkDown = 1_240_000
+        system.networkUp = 86_000
+        system.diskTotal = 994_000_000_000
+        system.diskFree = 215_000_000_000
+        system.diskRead = 2_300_000
+        system.diskWrite = 820_000
+        system.temperature = 54
+        system.thermalState = .nominal
+    }
+
     static func makeState() -> AppState {
         let app = AppState(geometry: .preview)
 

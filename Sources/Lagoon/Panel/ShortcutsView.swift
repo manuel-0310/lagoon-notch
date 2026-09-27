@@ -66,6 +66,26 @@ struct AddShortcutMenu: View {
     var body: some View {
         let shortcuts = app.shortcuts
         let remaining = shortcuts.available.filter { !shortcuts.favorites.contains($0) }
+        if AppEnvironment.isSnapshot {
+            label
+        } else {
+            menu(shortcuts, remaining: remaining)
+        }
+    }
+
+    private var label: some View {
+        HStack(spacing: 5) {
+            Icon(.add, size: 15)
+            Text("Atajo")
+        }
+        .lagoonFont(12, .semibold)
+        .padding(.horizontal, 12)
+        .frame(height: 28)
+        .background(Capsule().fill(Color.white(0.14)))
+        .contentShape(Capsule())
+    }
+
+    private func menu(_ shortcuts: ShortcutsService, remaining: [String]) -> some View {
         Menu {
             if shortcuts.isLoadingList {
                 Text("Cargando atajos…")
@@ -79,15 +99,7 @@ struct AddShortcutMenu: View {
             Divider()
             Button("Abrir la app Atajos…") { shortcuts.openShortcutsApp() }
         } label: {
-            HStack(spacing: 5) {
-                Icon(.add, size: 15)
-                Text("Atajo")
-            }
-            .lagoonFont(12, .semibold)
-            .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Capsule().fill(Color.white(0.14)))
-            .contentShape(Capsule())
+            label
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)

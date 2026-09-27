@@ -6,6 +6,8 @@ import SwiftUI
 enum SnapshotRenderer {
     struct Scenario {
         let name: String
+        /// Vista distinta del notch (por ejemplo, la pantalla de bloqueo).
+        var view: ((AppState) -> AnyView)? = nil
         let setup: (AppState) -> Void
     }
 
@@ -24,9 +26,10 @@ enum SnapshotRenderer {
             let app = MockData.makeState()
             scenario.setup(app)
             let spec = app.notch.spec(for: app.notch.current)
-            let height = max(110, spec.height + 70)
+            let height = scenario.view == nil ? max(110, spec.height + 70) : 220
+            let content = scenario.view?(app) ?? AnyView(NotchRootView().environment(app))
             let canvas = SnapshotCanvas(height: height) {
-                NotchRootView().environment(app)
+                content
             }
             let renderer = ImageRenderer(content: canvas)
             renderer.scale = 2
@@ -178,6 +181,71 @@ enum SnapshotRenderer {
             app.weather.state = .noLocation
             expand(app, .home, .weather)
         },
+
+        // Funciones nuevas
+        Scenario(name: "1g-claude-trabajando") { app in
+            app.music.isPlaying = false
+            app.battery.isCharging = false
+            MockData.claudeSessions(app)
+            app.notch.refresh(animated: false)
+        },
+        Scenario(name: "1h-musica-y-claude") { app in
+            app.battery.isCharging = false
+            MockData.claudeSessions(app)
+            app.notch.refresh(animated: false)
+        },
+        Scenario(name: "1i-privacidad") { app in
+            app.privacy.cameraInUse = true
+            app.privacy.microphoneInUse = true
+            app.battery.isCharging = false
+            app.notch.refresh(animated: false)
+        },
+        Scenario(name: "2o-permiso-claude") { app in
+            app.notch.showForSnapshot(.claudePermission(MockData.claudeRequest))
+        },
+        Scenario(name: "2p-claude-termino") { app in
+            app.notch.showForSnapshot(.claudeNotice(ClaudeNotice(sessionID: "s1", project: "lagoon-notch", kind: .done,
+                                                                 message: "Listo: agregué la pestaña Sistema y las capturas.")))
+        },
+        Scenario(name: "2q-concentracion") { app in
+            app.notch.showForSnapshot(.focusChanged(FocusMode(id: "com.apple.donotdisturb.mode.default",
+                                                              name: "No molestar", icon: .darkMode,
+                                                              tint: Palette.purple), active: true))
+        },
+        Scenario(name: "2r-microfono") { app in
+            app.notch.showForSnapshot(.privacyStarted(PrivacyAlert(kind: .microphone, appName: "Zoom")))
+        },
+        Scenario(name: "2s-atajo") { app in
+            app.notch.showForSnapshot(.shortcutRan(name: "Modo estudio", ok: true))
+        },
+        Scenario(name: "6a-atajos") { app in
+            MockData.shortcuts(app)
+            expand(app, .shortcuts)
+        },
+        Scenario(name: "6b-atajos-vacio") { app in
+            app.shortcuts.favorites = []
+            app.shortcuts.apps = []
+            expand(app, .shortcuts)
+        },
+        Scenario(name: "6c-sistema") { app in
+            MockData.system(app)
+            expand(app, .system)
+        },
+        Scenario(name: "6d-claude") { app in
+            MockData.claudeSessions(app)
+            app.claude.pending = [MockData.claudeRequest]
+            expand(app, .claude)
+        },
+        Scenario(name: "6e-claude-sin-conectar") { app in
+            app.claude.isConnected = false
+            expand(app, .claude)
+        },
+        Scenario(name: "7a-bloqueo", view: { app in
+            AnyView(LockScreenView(geometry: .preview).environment(app))
+        }) { _ in },
+        Scenario(name: "7b-bloqueo-desplegado", view: { app in
+            AnyView(LockScreenView(geometry: .preview, expanded: true).environment(app))
+        }) { _ in },
     ]
 
     private static func expand(_ app: AppState, _ tab: PanelTab, _ subpage: HomeSubpage? = nil) {

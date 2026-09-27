@@ -36,6 +36,23 @@ struct SettingsView: View {
     @AppStorage(Prefs.useFahrenheit) private var useFahrenheit = false
     @AppStorage(Prefs.worldClocks) private var worldClocks = ""
 
+    @AppStorage(Prefs.hideInFullscreen) private var hideInFullscreen = true
+    @AppStorage(Prefs.fullscreenShowImportant) private var fullscreenShowImportant = true
+    @AppStorage(Prefs.musicAllApps) private var musicAllApps = true
+    @AppStorage(Prefs.showFocusChanges) private var showFocusChanges = true
+    @AppStorage(Prefs.showPrivacyIndicators) private var showPrivacyIndicators = true
+    @AppStorage(Prefs.showPrivacyAlerts) private var showPrivacyAlerts = true
+    @AppStorage(Prefs.detectScreenRecording) private var detectScreenRecording = true
+    @AppStorage(Prefs.lockScreenEnabled) private var lockScreenEnabled = true
+    @AppStorage(Prefs.lockScreenMusic) private var lockScreenMusic = true
+    @AppStorage(Prefs.lockScreenTimer) private var lockScreenTimer = true
+    @AppStorage(Prefs.lockScreenCharging) private var lockScreenCharging = true
+    @AppStorage(Prefs.lockScreenWeather) private var lockScreenWeather = true
+    @AppStorage(Prefs.claudeWings) private var claudeWings = true
+    @AppStorage(Prefs.claudePermissions) private var claudePermissions = true
+    @AppStorage(Prefs.claudeShowDone) private var claudeShowDone = true
+    @AppStorage(Prefs.hiddenTabs) private var hiddenTabs = ""
+
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var accessibilityTrusted = MediaKeyTap.isTrusted
 
@@ -59,6 +76,22 @@ struct SettingsView: View {
                     Text("10 s").tag(10.0)
                 }
                 Toggle("Mostrar en pantallas sin notch", isOn: $showWithoutNotch)
+                Toggle("Ocultar en apps a pantalla completa", isOn: $hideInFullscreen)
+                if hideInFullscreen {
+                    Toggle("Mostrar avisos importantes igualmente", isOn: $fullscreenShowImportant)
+                    Text("Pasa el cursor por el borde superior para verlo. Los avisos importantes son el timer terminado, los permisos de Claude Code, la batería baja y los próximos eventos.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Pestañas") {
+                ForEach(PanelTab.allCases.filter(\.canHide)) { tab in
+                    Toggle(tab.title, isOn: Binding(
+                        get: { !hiddenTabs.split(separator: ",").contains(Substring(String(tab.rawValue))) },
+                        set: { PanelTab.setHidden(tab, !$0) }
+                    ))
+                }
             }
 
             Section("Apariencia") {
@@ -69,6 +102,15 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 Text("“Mínima” cambia los muelles por fundidos de 200 ms, igual que Reducir movimiento.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Música") {
+                Toggle("Música de cualquier app (navegador, Podcasts…)", isOn: $musicAllApps)
+                Text(musicAllApps
+                     ? "Usa el adaptador de “Ahora suena” de macOS. Si deja de funcionar, Lagoon vuelve solo a Música y Spotify. Se aplica al reiniciar Lagoon."
+                     : "Solo Música y Spotify. Se aplica al reiniciar Lagoon.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -89,6 +131,65 @@ struct SettingsView: View {
                 }
                 Toggle("Recordatorios", isOn: $showReminders)
                 Toggle("Copiado al portapapeles", isOn: $showClipboardCopied)
+                Toggle("Cambios del modo Concentración", isOn: $showFocusChanges)
+                if showFocusChanges && app.focus.access == .denied {
+                    HStack {
+                        Text("Necesita Acceso total al disco para leer el modo activo.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Abrir Ajustes") { SystemLinks.open(.fullDiskAccess) }
+                    }
+                }
+            }
+
+            Section("Privacidad") {
+                Toggle("Puntos de cámara, micrófono y grabación en las alas", isOn: $showPrivacyIndicators)
+                Toggle("Avisar cuando una app empieza a usarlos", isOn: $showPrivacyAlerts)
+                Toggle("Detectar grabación de pantalla (experimental)", isOn: $detectScreenRecording)
+                    .disabled(!ScreenWatcher.isAvailable)
+                Text("Cámara y micrófono se detectan con avisos del sistema. La grabación de pantalla usa una función privada de macOS y se comprueba cada 3 s.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Pantalla de bloqueo") {
+                Toggle("Mostrar en la pantalla de bloqueo", isOn: $lockScreenEnabled)
+                    .disabled(!SkyLight.isAvailable)
+                if lockScreenEnabled {
+                    Toggle("Música", isOn: $lockScreenMusic)
+                    Toggle("Timer y cronómetro", isOn: $lockScreenTimer)
+                    Toggle("Carga y batería", isOn: $lockScreenCharging)
+                    Toggle("Clima", isOn: $lockScreenWeather)
+                }
+                Text(SkyLight.isAvailable
+                     ? "Aparece junto al notch; pasa el cursor para ver los controles."
+                     : "No disponible en esta versión de macOS.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Claude Code") {
+                HStack {
+                    if app.claude.isConnected {
+                        Label("Conectado", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Button("Desconectar") { app.claude.disconnect() }
+                    } else {
+                        Text("No conectado").foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Conectar Claude Code") { app.claude.connect() }
+                    }
+                }
+                if let error = app.claude.lastError {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+                Toggle("Actividad en las alas mientras trabaja", isOn: $claudeWings)
+                Toggle("Aprobar permisos desde el notch", isOn: $claudePermissions)
+                Toggle("Avisar cuando termina o te espera", isOn: $claudeShowDone)
+                Text("Conectar añade hooks y una barra de estado a ~/.claude/settings.json (se guarda una copia en settings.json.lagoon-backup). Si ya tenías barra de estado, se sigue mostrando igual. Vuelve a conectar si mueves Lagoon.app de carpeta.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Volumen y brillo") {
@@ -146,11 +247,15 @@ struct SettingsView: View {
                     MediaKeyTap.requestTrust()
                     SystemLinks.open(.accessibility)
                 }
-                PermissionRow(title: "Automatización (Música y Spotify)", granted: nil) {
+                PermissionRow(title: "Automatización (Música y Spotify, respaldo)", granted: nil) {
                     SystemLinks.open(.automation)
                 }
                 PermissionRow(title: "Ubicación (clima)", granted: nil) {
                     SystemLinks.open(.location)
+                }
+                PermissionRow(title: "Acceso total al disco (Concentración)",
+                              granted: app.focus.access == .granted ? true : nil) {
+                    SystemLinks.open(.fullDiskAccess)
                 }
             }
 
@@ -166,6 +271,7 @@ struct SettingsView: View {
         .frame(minWidth: 480, minHeight: 520)
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
             accessibilityTrusted = MediaKeyTap.isTrusted
+            app.focus.retryIfNeeded()
         }
     }
 

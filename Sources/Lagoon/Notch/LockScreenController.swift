@@ -78,7 +78,12 @@ final class LockScreenController {
 struct LockScreenView: View {
     @Environment(AppState.self) var app
     let geometry: NotchGeometry
-    @State private var expanded = false
+    @State private var expanded: Bool
+
+    init(geometry: NotchGeometry, expanded: Bool = false) {
+        self.geometry = geometry
+        _expanded = State(initialValue: expanded)
+    }
 
     private var showMusic: Bool { Prefs.bool(Prefs.lockScreenMusic) && app.music.track != nil }
     private var showTimer: Bool {
