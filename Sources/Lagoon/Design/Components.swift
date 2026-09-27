@@ -408,6 +408,7 @@ final class WaveformNSView: NSView {
     private var animating = false
     private var color: NSColor = .lagoonPink
     private let durations: [CFTimeInterval] = [0.52, 0.38, 0.61, 0.44, 0.57, 0.41, 0.49]
+    private var powerObserver: NSObjectProtocol?
 
     init(heights: [CGFloat], barWidth: CGFloat, spacing: CGFloat) {
         self.heights = heights
@@ -422,10 +423,19 @@ final class WaveformNSView: NSView {
             layer?.addSublayer(bar)
             bars.append(bar)
         }
+        // Con el modo de bajo consumo la onda se queda quieta (es la única animación continua).
+        powerObserver = NotificationCenter.default.addObserver(forName: .NSProcessInfoPowerStateDidChange,
+                                                               object: nil, queue: .main) { [weak self] _ in
+            self?.applyAnimations()
+        }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        if let powerObserver { NotificationCenter.default.removeObserver(powerObserver) }
+    }
 
     override func layout() {
         super.layout()
@@ -461,9 +471,10 @@ final class WaveformNSView: NSView {
     private func applyAnimations() {
         let maxHeight = heights.max() ?? 24
         let now = CACurrentMediaTime()
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         for (i, bar) in bars.enumerated() {
             bar.removeAnimation(forKey: "wave")
-            guard animating, window != nil, !Motion.reduced else { continue }
+            guard animating, window != nil, !Motion.reduced, !lowPower else { continue }
             let animation = CABasicAnimation(keyPath: "bounds.size.height")
             animation.fromValue = max(3, heights[i] * 0.35)
             animation.toValue = min(maxHeight * 1.15, max(heights[i], maxHeight * 0.8))

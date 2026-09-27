@@ -76,7 +76,7 @@ struct MusicProgressLine: View {
 
     var body: some View {
         let music = app.music
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        TimelineView(.periodic(from: .now, by: music.isPlaying ? 1 : 3600)) { context in
             ProgressBar(value: music.progress(at: context.date), color: music.accent, track: .white(0.16), height: 4)
         }
     }
