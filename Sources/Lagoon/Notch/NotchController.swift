@@ -155,7 +155,9 @@ final class NotchController {
                 if pasteboard.changeCount != dragChangeCount {
                     dragChecked = true
                     // Solo los arrastres que vienen de fuera (Finder, Mail…); los que salen de la bandeja no.
-                    draggingFiles = !app.tray.isDraggingOut && Self.containsFiles(pasteboard)
+                    // En la pestaña Atajos, las apps se sueltan en la propia pestaña.
+                    let onShortcuts = model.isExpanded && model.tab == .shortcuts
+                    draggingFiles = !app.tray.isDraggingOut && !onShortcuts && Self.containsFiles(pasteboard)
                 }
             }
             if draggingFiles {
