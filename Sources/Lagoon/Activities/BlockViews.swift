@@ -307,6 +307,76 @@ struct PrivacyBlock: View {
     }
 }
 
+// MARK: - Claude Code
+
+struct ClaudeBadge: View {
+    var size: CGFloat = 36
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Palette.claude.opacity(0.2))
+            Icon(.smartToy, size: size * 0.53, color: Palette.claude)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+struct ClaudePermissionBlock: View {
+    @Environment(AppState.self) var app
+    let request: ClaudePermissionRequest
+
+    var body: some View {
+        ClaudeBadge()
+        VStack(alignment: .leading, spacing: 1) {
+            Text("\(request.project) · \(request.tool)")
+                .lagoonFont(11, .semibold)
+                .foregroundStyle(Palette.claude)
+                .lineLimit(1)
+            Text(request.summary)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            if let detail = request.detail {
+                Text(detail)
+                    .lagoonFont(11)
+                    .foregroundStyle(Palette.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                PillButton(title: "Rechazar", style: .tinted(Palette.red)) { app.claude.respond(request, .deny) }
+                PillButton(title: "Permitir", style: .filled(Palette.claude, text: .black)) {
+                    app.claude.respond(request, .allow)
+                }
+            }
+            Button { app.claude.respond(request, .terminal) } label: {
+                Text("Responder en la terminal")
+                    .lagoonFont(10.5)
+                    .foregroundStyle(Palette.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+        }
+    }
+}
+
+struct ClaudeNoticeBlock: View {
+    @Environment(AppState.self) var app
+    let notice: ClaudeNotice
+
+    var body: some View {
+        ClaudeBadge()
+        BlockText(eyebrow: notice.project, eyebrowColor: Palette.claude,
+                  title: notice.title, subtitle: notice.message)
+        PillButton(title: "Ir", icon: .terminal) {
+            app.claude.activateTerminal(sessionID: notice.sessionID)
+            app.notch.dismissTransient()
+        }
+    }
+}
+
 // MARK: - Bienvenida (primer arranque)
 
 struct WelcomeBlock: View {

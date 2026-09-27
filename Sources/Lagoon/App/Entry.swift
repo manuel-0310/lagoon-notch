@@ -3,6 +3,11 @@ import AppKit
 @main
 enum LagoonEntry {
     static func main() {
+        // Modo ayudante de Claude Code: sin interfaz, sale en cuanto entrega el mensaje.
+        let arguments = CommandLine.arguments
+        if arguments.contains(ClaudeHookInstaller.hookFlag) { ClaudeHelper.runHook() }
+        if arguments.contains(ClaudeHookInstaller.statusFlag) { ClaudeHelper.runStatusLine() }
+
         MainActor.assumeIsolated {
             run()
         }

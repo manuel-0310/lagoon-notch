@@ -144,7 +144,7 @@ enum LiveActivity: Equatable {
         case .upcomingEvent: return 45
         case .reminderDue: return 30
         case .focusChanged, .privacyStarted: return 36
-        case .claudePermission: return 62
+        case .claudePermission: return 52
         case .claudeNotice: return 40
         default: return 44
         }
