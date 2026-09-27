@@ -42,7 +42,7 @@ struct HomeMusicCard: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(music.track?.title ?? "Nada sonando")
                         .lagoonFont(13, .semibold)
-                    Text(music.track?.artist ?? "Abre Música o Spotify")
+                    Text(music.track?.artist ?? "Reproduce algo")
                         .lagoonFont(12)
                         .foregroundStyle(Palette.secondary)
                 }

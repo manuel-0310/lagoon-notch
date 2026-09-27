@@ -38,7 +38,51 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# "Ahora suena" de cualquier app (Vendor/mediaremote-adapter, BSD-3): un framework que carga
+# /usr/bin/perl, más un pequeño cliente para comprobar que sigue funcionando.
+echo "▸ Compilando el adaptador de música…"
+MRA="$ROOT/Vendor/mediaremote-adapter"
+FW="$APP/Contents/Frameworks/MediaRemoteAdapter.framework"
+ARCHS=(-arch arm64 -arch x86_64)
+mkdir -p "$FW/Versions/A/Resources" "$APP/Contents/Helpers"
+clang -dynamiclib -fobjc-arc -fvisibility=default "${ARCHS[@]}" -mmacosx-version-min=14.0 \
+  -I"$MRA/include" -I"$MRA/src" \
+  "$MRA"/src/adapter/*.m "$MRA"/src/private/MediaRemote.m "$MRA"/src/utility/*.m \
+  -framework Foundation -framework AppKit -framework UniformTypeIdentifiers \
+  -install_name "@rpath/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter" \
+  -o "$FW/Versions/A/MediaRemoteAdapter"
+cat > "$FW/Versions/A/Resources/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>MediaRemoteAdapter</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.lagoon.MediaRemoteAdapter</string>
+	<key>CFBundleName</key>
+	<string>MediaRemoteAdapter</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+</dict>
+</plist>
+PLIST
+ln -sfn A "$FW/Versions/Current"
+ln -sfn Versions/Current/MediaRemoteAdapter "$FW/MediaRemoteAdapter"
+ln -sfn Versions/Current/Resources "$FW/Resources"
+clang -fobjc-arc "${ARCHS[@]}" -mmacosx-version-min=14.0 \
+  "$MRA/src/test/main.m" "$MRA/src/test/NowPlayingTest.m" \
+  -framework Foundation -framework MediaPlayer \
+  -o "$APP/Contents/Helpers/MediaRemoteAdapterTestClient"
+cp "$MRA/bin/mediaremote-adapter.pl" "$APP/Contents/Resources/mediaremote-adapter.pl"
+
 echo "▸ Firmando (ad-hoc)…"
+codesign --force --sign - --timestamp=none "$FW" >/dev/null
+codesign --force --sign - --timestamp=none "$APP/Contents/Helpers/MediaRemoteAdapterTestClient" >/dev/null
 codesign --force --sign - --timestamp=none "$APP" >/dev/null
 
 echo "✓ Listo: $APP"

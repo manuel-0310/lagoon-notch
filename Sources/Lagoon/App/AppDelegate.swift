@@ -35,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         notchController?.stop()
         state?.camera.stop()
+        state?.music.stop()
+        state?.claude.stop()
         state?.mediaKeys.stop()
     }
 

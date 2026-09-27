@@ -2,26 +2,49 @@ import AppKit
 import Observation
 import SwiftUI
 
-enum MusicSource: String {
-    case music, spotify
+/// App que está sonando (Música, Spotify, Chrome, Podcasts…).
+struct MusicSource: Equatable, Hashable {
+    var bundleID: String
 
-    var bundleID: String {
-        switch self {
-        case .music: return "com.apple.Music"
-        case .spotify: return "com.spotify.client"
-        }
-    }
+    static let music = MusicSource(bundleID: "com.apple.Music")
+    static let spotify = MusicSource(bundleID: "com.spotify.client")
 
-    /// Nombre para AppleScript.
+    /// Identificador corto para los IDs de pista.
+    var rawValue: String { bundleID }
+
+    /// Nombre para AppleScript (solo Música y Spotify se controlan así).
     var scriptName: String {
         switch self {
         case .music: return "Music"
         case .spotify: return "Spotify"
+        default: return ""
         }
     }
 
     var isRunning: Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+    }
+
+    private static var names: [String: String] = [:]
+    private static var icons: [String: NSImage] = [:]
+
+    /// Nombre visible de la app ("Google Chrome").
+    var displayName: String {
+        if let cached = Self.names[bundleID] { return cached }
+        var name = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        }
+        Self.names[bundleID] = name
+        return name
+    }
+
+    var icon: NSImage? {
+        if let cached = Self.icons[bundleID] { return cached }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        let image = NSWorkspace.shared.icon(forFile: url.path)
+        Self.icons[bundleID] = image
+        return image
     }
 }
 
@@ -34,10 +57,12 @@ struct Track: Equatable {
     var source: MusicSource
 }
 
-/// Canción actual de Música y Spotify.
+/// Canción actual de cualquier app (Música, Spotify, navegadores, Podcasts…).
 ///
-/// Sin sondeo: escucha las notificaciones distribuidas que publican ambas apps al cambiar
-/// de pista o de estado, y solo usa AppleScript para la portada, la posición y los controles.
+/// Camino principal: `MediaRemoteBridge`, que recibe los cambios del sistema en un proceso vivo.
+/// Respaldo (si el adaptador no funciona o se eligió "solo Música y Spotify"): las notificaciones
+/// distribuidas de Música y Spotify, con AppleScript para la portada, la posición y los controles.
+/// En ningún caso hay sondeo.
 @Observable
 final class NowPlayingService {
     var track: Track?
@@ -57,6 +82,12 @@ final class NowPlayingService {
     @ObservationIgnored private var pendingTrackID: String?
     /// "Ahora suena" solo aparece la primera vez que suena música en la sesión.
     @ObservationIgnored private var announcedThisSession = false
+    @ObservationIgnored private let bridge = MediaRemoteBridge()
+    /// true mientras el adaptador de MediaRemote es la fuente de datos.
+    @ObservationIgnored private(set) var usingAdapter = false
+    @ObservationIgnored private var legacyStarted = false
+    @ObservationIgnored private var adapterArtworkKey: String?
+    @ObservationIgnored private var adapterFirstUpdate = true
 
     var subtitle: String {
         guard let track else { return "" }
@@ -78,6 +109,46 @@ final class NowPlayingService {
     // MARK: - Ciclo de vida
 
     func start() {
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.bundleIdentifier == self.track?.source.bundleID else { return }
+            self.clear()
+        })
+
+        guard Prefs.bool(Prefs.musicAllApps), MediaRemoteBridge.paths != nil else {
+            startLegacy()
+            return
+        }
+        bridge.onUpdate = { [weak self] info in self?.applyAdapter(info) }
+        bridge.onFailure = { [weak self] in self?.fallBackToLegacy() }
+        MediaRemoteBridge.test { [weak self] works in
+            guard let self else { return }
+            if works {
+                self.usingAdapter = true
+                self.bridge.start()
+            } else {
+                self.startLegacy()
+            }
+        }
+    }
+
+    func stop() {
+        bridge.stop()
+    }
+
+    private func fallBackToLegacy() {
+        usingAdapter = false
+        bridge.stop()
+        startLegacy()
+    }
+
+    /// Solo Música y Spotify, por notificaciones distribuidas y AppleScript.
+    private func startLegacy() {
+        guard !legacyStarted else { return }
+        legacyStarted = true
         let center = DistributedNotificationCenter.default()
         observers.append(center.addObserver(forName: Notification.Name("com.apple.Music.playerInfo"),
                                             object: nil, queue: .main) { [weak self] note in
@@ -86,14 +157,6 @@ final class NowPlayingService {
         observers.append(center.addObserver(forName: Notification.Name("com.spotify.client.PlaybackStateChanged"),
                                             object: nil, queue: .main) { [weak self] note in
             self?.handleSpotify(note.userInfo ?? [:])
-        })
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] note in
-            guard let self,
-                  let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  app.bundleIdentifier == self.track?.source.bundleID else { return }
-            self.clear()
         })
 
         // Estado inicial si alguna app ya está sonando.
@@ -186,9 +249,10 @@ final class NowPlayingService {
         isPlaying = playing
         positionAnchor = position
         anchorDate = Date()
+        if playing { announceIfFirstPlay(newTrack.id) }
+        guard !usingAdapter else { return }
         if position == 0 { requestPosition(newTrack.source) }
         requestShuffle(newTrack.source)
-        if playing { announceIfFirstPlay(newTrack.id) }
         // Si la portada no llegó a tiempo, se reintenta en segundo plano.
         if image == nil {
             fetchArtwork(newTrack.source) { [weak self] late in
@@ -202,6 +266,71 @@ final class NowPlayingService {
                 self.accentNS = colors.accent
             }
         }
+    }
+
+    // MARK: - Adaptador de MediaRemote
+
+    private func applyAdapter(_ info: [String: Any]) {
+        guard let title = info["title"] as? String, !title.isEmpty,
+              let bundle = (info["parentApplicationBundleIdentifier"] as? String)
+                ?? (info["bundleIdentifier"] as? String) else {
+            if track != nil { clear() }
+            return
+        }
+        let source = MusicSource(bundleID: bundle)
+        defer { adapterFirstUpdate = false }
+        let playing = (info["playing"] as? Bool) ?? ((info["playbackRate"] as? NSNumber)?.doubleValue ?? 0 > 0)
+        let artist = info["artist"] as? String ?? ""
+        let album = info["album"] as? String ?? ""
+        let duration = ((info["durationMicros"] as? NSNumber)?.doubleValue ?? 0) / 1_000_000
+        let elapsed = ((info["elapsedTimeMicros"] as? NSNumber)?.doubleValue).map { $0 / 1_000_000 }
+        let stamp = ((info["timestampEpochMicros"] as? NSNumber)?.doubleValue).map { Date(timeIntervalSince1970: $0 / 1_000_000) }
+        let uniqueID = (info["uniqueIdentifier"] as? NSNumber)?.stringValue
+            ?? (info["uniqueIdentifier"] as? String)
+            ?? (info["contentItemIdentifier"] as? String)
+        let trackID = "\(bundle)|" + (uniqueID ?? "\(title)|\(artist)|\(album)")
+        let newTrack = Track(id: trackID, title: title, artist: artist, album: album,
+                             duration: duration, source: source)
+        if let mode = (info["shuffleMode"] as? NSNumber)?.intValue { shuffle = mode >= 2 }
+
+        // Posición: `elapsed` es la de `stamp`; mientras suena avanza sola.
+        let anchor: (Double, Date)? = elapsed.map { ($0, stamp ?? Date()) }
+
+        // Portada (llega en base64, a veces un poco después que el resto).
+        var image: NSImage?
+        let artworkKey = (info["artworkData"] as? String).map { "\(trackID)#\($0.count)" }
+        if let base64 = info["artworkData"] as? String, artworkKey != adapterArtworkKey,
+           let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters) {
+            image = NSImage(data: data)
+        }
+
+        if track?.id == trackID {
+            if track != newTrack { track = newTrack }
+            isPlaying = playing
+            if let anchor {
+                positionAnchor = anchor.0
+                anchorDate = anchor.1
+            }
+            if let image {
+                adapterArtworkKey = artworkKey
+                let colors = ArtworkColors.extract(image) ?? ArtworkColors.default
+                withAnimation(Motion.songChange) {
+                    artwork = image
+                    accent = Color(nsColor: colors.accent)
+                    glow = Color(nsColor: colors.glow)
+                }
+                accentNS = colors.accent
+            }
+            if playing { announceIfFirstPlay(trackID) }
+            return
+        }
+
+        // Si ya sonaba algo al abrir Lagoon, no se anuncia.
+        if adapterFirstUpdate, playing { announcedThisSession = true }
+        pendingTrackID = nil
+        adapterArtworkKey = image == nil ? nil : artworkKey
+        commitTrack(newTrack, artwork: image, playing: playing, position: anchor?.0 ?? 0)
+        if let anchor { anchorDate = anchor.1 }
     }
 
     private func announceIfFirstPlay(_ trackID: String) {
@@ -229,25 +358,29 @@ final class NowPlayingService {
 
     func playPause() {
         guard let source = track?.source else { return }
-        isPlaying.toggle()
         positionAnchor = position(at: Date())
         anchorDate = Date()
+        isPlaying.toggle()
+        if usingAdapter { return bridge.send(.togglePlayPause) }
         run("tell application \"\(source.scriptName)\" to playpause")
     }
 
     func next() {
         guard let source = track?.source else { return }
+        if usingAdapter { return bridge.send(.next) }
         run("tell application \"\(source.scriptName)\" to next track")
     }
 
     func previous() {
         guard let source = track?.source else { return }
+        if usingAdapter { return bridge.send(.previous) }
         run("tell application \"\(source.scriptName)\" to previous track")
     }
 
     func toggleShuffle() {
         guard let source = track?.source else { return }
         shuffle.toggle()
+        if usingAdapter { return bridge.setShuffle(shuffle) }
         let property = source == .music ? "shuffle enabled" : "shuffling"
         run("tell application \"\(source.scriptName)\" to set \(property) to \(shuffle ? "true" : "false")")
     }
@@ -256,6 +389,7 @@ final class NowPlayingService {
         guard let source = track?.source else { return }
         positionAnchor = seconds
         anchorDate = Date()
+        if usingAdapter { return bridge.seek(to: seconds) }
         run("tell application \"\(source.scriptName)\" to set player position to \(String(format: "%.2f", seconds))")
     }
 
@@ -332,6 +466,8 @@ final class NowPlayingService {
                     DispatchQueue.main.async { completion(image) }
                 }.resume()
             }
+        default:
+            completion(nil)
         }
     }
 

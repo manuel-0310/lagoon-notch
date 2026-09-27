@@ -35,6 +35,10 @@ struct MusicPlayerView: View {
                         .foregroundStyle(Palette.secondary)
                         .lineLimit(1)
                         .padding(.top, 2)
+                    if let source = music.track?.source, source != .music, source != .spotify {
+                        SourceBadge(source: source)
+                            .padding(.top, 5)
+                    }
                 }
                 .stagger(2)
 
@@ -125,7 +129,7 @@ struct MusicEmptyView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Nada sonando").lagoonFont(18, .semibold)
-                Text("Reproduce algo en Música o Spotify y aparecerá aquí con sus controles.")
+                Text("Reproduce algo en Música, Spotify, el navegador o Podcasts y aparecerá aquí con sus controles.")
                     .lagoonFont(13)
                     .foregroundStyle(Palette.secondary)
                     .lineSpacing(3)
@@ -139,6 +143,26 @@ struct MusicEmptyView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .stagger(2)
+        }
+    }
+}
+
+/// "en Google Chrome" con el ícono de la app que suena.
+struct SourceBadge: View {
+    let source: MusicSource
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let icon = source.icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 14, height: 14)
+            }
+            Text("en \(source.displayName)")
+                .lagoonFont(11)
+                .foregroundStyle(Palette.secondary)
+                .lineLimit(1)
         }
     }
 }
