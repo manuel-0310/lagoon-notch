@@ -318,6 +318,20 @@ final class TimerService {
         laps = []
     }
 
+    /// "Vuelta 4" mientras corre, "En pausa" o "Cronómetro".
+    var stopwatchCaption: String {
+        if isStopwatchRunning { return "Vuelta \(laps.count + 1)" }
+        return stopwatchAccumulated > 0 ? "En pausa" : "Cronómetro"
+    }
+
+    /// "Mejor vuelta 04:04,4" / "Pulsa ▶ para empezar"
+    var stopwatchFootnote: String {
+        if let best = laps.min(), laps.count > 1 { return "Mejor vuelta \(Formatters.stopwatch(best))" }
+        if let last = laps.last { return "Última vuelta \(Formatters.stopwatch(last))" }
+        if isStopwatchRunning { return "Marca vueltas con la bandera" }
+        return stopwatchAccumulated > 0 ? "Pulsa ▶ para seguir" : "Pulsa ▶ para empezar"
+    }
+
     /// Vueltas más recientes primero; la mejor en verde y la peor en rojo.
     var lapRows: [LapRow] {
         let best = laps.count > 1 ? laps.min() : nil

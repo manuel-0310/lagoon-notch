@@ -8,29 +8,10 @@ struct DropZonesView: View {
 
     var body: some View {
         let model = app.notch
+        // Solo dibuja las zonas; los archivos los recibe DropCatcherPanel, justo encima.
         HStack(spacing: 12) {
             DropZone(icon: .inventory2, title: "Guardar en la bandeja", targeted: model.trayDropTargeted)
-                .onDrop(of: [UTType.fileURL], isTargeted: Binding(
-                    get: { model.trayDropTargeted },
-                    set: { value in withAnimation(.easeOut(duration: 0.15)) { model.trayDropTargeted = value } }
-                )) { providers in
-                    app.tray.add(providers: providers) { added in
-                        model.fileDragEnded()
-                        if added > 0 { model.post(.traySaved) }
-                    }
-                    return true
-                }
             DropZone(icon: .wifiTethering, title: "AirDrop", targeted: model.airDropTargeted)
-                .onDrop(of: [UTType.fileURL], isTargeted: Binding(
-                    get: { model.airDropTargeted },
-                    set: { value in withAnimation(.easeOut(duration: 0.15)) { model.airDropTargeted = value } }
-                )) { providers in
-                    FileDrop.loadURLs(from: providers) { urls in
-                        model.fileDragEnded()
-                        AirDrop.share(urls)
-                    }
-                    return true
-                }
         }
         .padding(.top, model.geometry.notchHeight + 8)
         .padding(.horizontal, 16)

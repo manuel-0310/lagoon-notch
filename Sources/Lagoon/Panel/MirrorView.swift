@@ -1,7 +1,7 @@
 import AVFoundation
 import SwiftUI
 
-/// 4g · Espejo: la luz de relleno ilumina el borde. La cámara se apaga al cerrar el panel.
+/// 4g · Espejo. La cámara se apaga al cerrar el panel.
 struct MirrorView: View {
     @Environment(AppState.self) var app
 
@@ -24,7 +24,6 @@ struct MirrorView: View {
 
 struct MirrorLiveView: View {
     @Environment(AppState.self) var app
-    @AppStorage(Prefs.mirrorFillLight) private var fillLight = true
     @AppStorage(Prefs.mirrorFlip) private var flip = false
     @AppStorage(Prefs.mirrorZoom) private var zoom = 1
 
@@ -45,20 +44,10 @@ struct MirrorLiveView: View {
             .frame(width: 300, height: 168)
             .clipShape(RoundedRectangle(cornerRadius: 17))
             .padding(3)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(fillLight ? Color.white(0.85) : Color.white(0.12))
-                    .shadow(color: .white.opacity(fillLight ? 0.35 : 0), radius: 14)
-            )
-            .animation(.easeInOut(duration: 0.25), value: fillLight)
+            .background(RoundedRectangle(cornerRadius: 20).fill(Color.white(0.12)))
             .stagger(1)
 
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Luz de relleno")
-                    Spacer()
-                    LagoonToggle(isOn: $fillLight)
-                }
                 HStack {
                     Text("Voltear imagen")
                     Spacer()

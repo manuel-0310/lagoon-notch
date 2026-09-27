@@ -26,6 +26,12 @@ final class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// macOS baja por defecto las ventanas para que no tapen la barra de menús.
+    /// El notch tiene que quedar pegado al borde superior, sobre el notch físico.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
 }
 
 /// Hosting view que acepta el primer clic (los botones responden aunque el panel no tenga foco).

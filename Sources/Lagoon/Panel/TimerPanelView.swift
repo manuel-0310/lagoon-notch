@@ -107,7 +107,7 @@ struct PresetChip: View {
     }
 }
 
-// MARK: - Cronómetro
+// MARK: - Cronómetro (mismo esquema que Timer y Pomodoro)
 
 struct StopwatchPanel: View {
     @Environment(AppState.self) var app
@@ -116,58 +116,92 @@ struct StopwatchPanel: View {
     var body: some View {
         let timers = app.timers
         HStack(spacing: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                modePicker
-                StopwatchText(size: 56, weight: .thin, tenths: true)
-                    .tracking(-1.68)
-                    .frame(height: 56)
-                HStack(spacing: 8) {
-                    if timers.isStopwatchRunning {
-                        PillButton(title: "Vuelta") { timers.lap() }
-                        PillButton(title: "Detener", style: .tinted(Palette.red)) { timers.toggleStopwatch() }
-                    } else if timers.stopwatchAccumulated > 0 {
-                        PillButton(title: "Reiniciar") { withAnimation(Motion.tab) { timers.resetStopwatch() } }
-                        PillButton(title: "Reanudar", style: .tinted(Palette.green)) { timers.toggleStopwatch() }
-                    } else {
-                        PillButton(title: "Iniciar", style: .tinted(Palette.green)) { timers.toggleStopwatch() }
+            // Círculo: el anillo da una vuelta por minuto, como una manecilla.
+            TimelineView(.periodic(from: timers.stopwatchStart ?? .now, by: timers.isStopwatchRunning ? 0.1 : 3600)) { context in
+                let elapsed = timers.stopwatchElapsed(at: context.date)
+                ZStack {
+                    RingProgress(value: elapsed > 0 ? elapsed.truncatingRemainder(dividingBy: 60) / 60 : 0,
+                                 color: Palette.orange, lineWidth: 7)
+                    VStack(spacing: 0) {
+                        Text(Formatters.stopwatch(elapsed))
+                            .lagoonFont(32, .semibold)
+                            .tracking(-0.64)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 12)
+                        Text(timers.stopwatchCaption)
+                            .lagoonFont(11)
+                            .foregroundStyle(Palette.secondary)
                     }
+                }
+                .frame(width: 150, height: 150)
+            }
+            .stagger(1)
+
+            VStack(alignment: .leading, spacing: 14) {
+                modePicker
+                // Donde el timer tiene las duraciones, aquí van las últimas vueltas.
+                HStack(spacing: 6) {
+                    if timers.laps.isEmpty {
+                        Text("Sin vueltas todavía")
+                            .lagoonFont(11.5, .semibold)
+                            .foregroundStyle(Color.white(0.35))
+                            .padding(.vertical, 5)
+                            .padding(.horizontal, 10)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white(0.05)))
+                    } else {
+                        ForEach(timers.lapRows.prefix(3)) { row in
+                            LapChip(row: row)
+                                .transition(.scale(scale: 0.8).combined(with: .opacity))
+                        }
+                    }
+                }
+                HStack(spacing: 10) {
+                    CircleIconButton(icon: timers.isStopwatchRunning ? .pause : .playArrow,
+                                     iconSize: 24, background: Palette.orange, foreground: .black) {
+                        timers.toggleStopwatch()
+                    }
+                    if timers.isStopwatchRunning {
+                        CircleIconButton(icon: .flag, iconSize: 22) { timers.lap() }
+                            .help("Vuelta")
+                    } else {
+                        CircleIconButton(icon: .restartAlt, iconSize: 22) {
+                            withAnimation(Motion.tab) { timers.resetStopwatch() }
+                        }
+                        .help("Reiniciar")
+                        .disabled(timers.stopwatchAccumulated == 0)
+                        .opacity(timers.stopwatchAccumulated == 0 ? 0.4 : 1)
+                    }
+                    Text(timers.stopwatchFootnote)
+                        .lagoonFont(11)
+                        .foregroundStyle(Palette.secondary)
+                        .lineLimit(1)
+                        .padding(.leading, 4)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .stagger(1)
-
-            VStack(spacing: 0) {
-                if timers.laps.isEmpty {
-                    Text("Las vueltas aparecerán aquí")
-                        .lagoonFont(12)
-                        .foregroundStyle(Color.white(0.35))
-                } else {
-                    LagoonScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(timers.lapRows) { row in
-                                HStack {
-                                    Text("Vuelta \(row.number)")
-                                        .foregroundStyle(Palette.secondary)
-                                    Spacer()
-                                    Text(Formatters.stopwatch(row.duration))
-                                        .monospacedDigit()
-                                        .foregroundStyle(row.isBest ? Palette.green : row.isWorst ? Palette.red : .white)
-                                }
-                                .lagoonFont(12.5)
-                                .padding(.vertical, 7)
-                                .overlay(alignment: .bottom) {
-                                    Rectangle().fill(Palette.divider).frame(height: 1)
-                                }
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 132)
-                }
-            }
-            .frame(width: 210)
-            .frame(maxHeight: .infinity)
             .stagger(2)
         }
+    }
+}
+
+/// Vuelta como las píldoras de duración: la mejor en verde y la peor en rojo.
+struct LapChip: View {
+    let row: LapRow
+
+    var body: some View {
+        let color: Color? = row.isBest ? Palette.green : row.isWorst ? Palette.red : nil
+        HStack(spacing: 4) {
+            Text("V\(row.number)")
+                .foregroundStyle(color ?? Color.white(0.45))
+            Text(Formatters.stopwatch(row.duration))
+                .monospacedDigit()
+                .foregroundStyle(color ?? Color.white(0.7))
+        }
+        .lagoonFont(11.5, .semibold)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(color?.opacity(0.18) ?? Color.white(0.08)))
     }
 }

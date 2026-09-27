@@ -55,6 +55,8 @@ final class NowPlayingService {
     @ObservationIgnored private let scriptQueue = DispatchQueue(label: "app.lagoon.applescript", qos: .userInitiated)
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var pendingTrackID: String?
+    /// "Ahora suena" solo aparece la primera vez que suena música en la sesión.
+    @ObservationIgnored private var announcedThisSession = false
 
     var subtitle: String {
         guard let track else { return "" }
@@ -148,6 +150,7 @@ final class NowPlayingService {
         if track?.id == trackID {
             if track != newTrack { track = newTrack }
             isPlaying = playing
+            if playing { announceIfFirstPlay(trackID) }
             if let position {
                 positionAnchor = position
                 anchorDate = Date()
@@ -185,9 +188,7 @@ final class NowPlayingService {
         anchorDate = Date()
         if position == 0 { requestPosition(newTrack.source) }
         requestShuffle(newTrack.source)
-        if playing, Prefs.bool(Prefs.showSongChange) {
-            notch?.post(.songChange(trackID: newTrack.id))
-        }
+        if playing { announceIfFirstPlay(newTrack.id) }
         // Si la portada no llegó a tiempo, se reintenta en segundo plano.
         if image == nil {
             fetchArtwork(newTrack.source) { [weak self] late in
@@ -200,6 +201,14 @@ final class NowPlayingService {
                 }
                 self.accentNS = colors.accent
             }
+        }
+    }
+
+    private func announceIfFirstPlay(_ trackID: String) {
+        guard !announcedThisSession else { return }
+        announcedThisSession = true
+        if Prefs.bool(Prefs.showSongChange) {
+            notch?.post(.songChange(trackID: trackID))
         }
     }
 
@@ -280,6 +289,7 @@ final class NowPlayingService {
             let position = result.atIndex(6)?.doubleValue ?? 0
             let normalized = state.lowercased() == "playing" ? "Playing" : "Paused"
             if normalized == "Paused", self.track != nil { return }
+            if normalized == "Playing" { self.announcedThisSession = true }
             self.apply(source: source, state: normalized, title: title, artist: artist, album: album,
                        duration: duration, position: position, id: nil)
         }

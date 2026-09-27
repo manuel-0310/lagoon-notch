@@ -26,6 +26,8 @@ final class TrayService {
     var expiresAt: Date?
 
     @ObservationIgnored weak var notch: NotchViewModel?
+    /// Un archivo de la bandeja se está arrastrando hacia fuera (no abrir el modo "soltar").
+    @ObservationIgnored var isDraggingOut = false
     @ObservationIgnored private var expiryTimer: Timer?
     @ObservationIgnored private var loadingThumbnails = Set<UUID>()
     @ObservationIgnored private let storeKey = "trayItems"

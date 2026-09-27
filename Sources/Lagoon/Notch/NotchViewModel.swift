@@ -216,9 +216,16 @@ final class NotchViewModel {
         return rect
     }
 
-    /// El arrastre de un archivo "entra" a 60 pt del notch.
-    var dropActivationRect: CGRect {
-        geometry.screenRect(for: currentSpec.size).insetBy(dx: -60, dy: -60)
+    /// Zona amplia alrededor del notch: al acercar un archivo aquí se abre el modo "soltar".
+    var dropApproachRect: CGRect {
+        let frame = geometry.screenFrame
+        let width: CGFloat = 900, height: CGFloat = 320
+        return CGRect(x: frame.midX - width / 2, y: frame.maxY - height, width: width, height: height + 10)
+    }
+
+    /// Donde se colocan las dos zonas para soltar (con un poco de margen).
+    var dropCatcherRect: CGRect {
+        geometry.screenRect(for: spec(for: .drop).size).insetBy(dx: -20, dy: -20)
     }
 
     // MARK: - Hover, clic, expandir, colapsar
@@ -371,10 +378,6 @@ final class NotchViewModel {
     // MARK: - Arrastrar archivos
 
     func fileDrag(near: Bool) {
-        if isExpanded {
-            if near, tab != .tray { select(.tray) }
-            return
-        }
         guard near != isDropMode else { return }
         isDropMode = near
         if !near {
@@ -390,6 +393,7 @@ final class NotchViewModel {
         trayDropTargeted = false
         airDropTargeted = false
         refresh()
+        if isExpanded, !pointerInside { scheduleCollapse(after: 0.8) }
     }
 
     // MARK: - Actividades en vivo

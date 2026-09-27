@@ -75,7 +75,7 @@ struct SettingsView: View {
 
             Section("Actividades en vivo") {
                 Toggle("Música en las alas", isOn: $showMusicWings)
-                Toggle("Cambio de canción", isOn: $showSongChange)
+                Toggle("“Ahora suena” al empezar a escuchar", isOn: $showSongChange)
                 Toggle("Carga en las alas mientras carga", isOn: $showChargingWings)
                 Toggle("Cargador conectado / desconectado", isOn: $showChargerEvents)
                 Toggle("Batería baja", isOn: $showLowBattery)

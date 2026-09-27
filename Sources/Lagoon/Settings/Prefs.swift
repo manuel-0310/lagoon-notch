@@ -48,7 +48,6 @@ enum Prefs {
     static let worldClocks = "worldClocks"
 
     // Espejo
-    static let mirrorFillLight = "mirrorFillLight"
     static let mirrorFlip = "mirrorFlip"
     static let mirrorZoom = "mirrorZoom"
 
@@ -81,7 +80,6 @@ enum Prefs {
             trayLifetimeMinutes: 60,
             useFahrenheit: false,
             worldClocks: "America/Mexico_City,America/New_York,Asia/Tokyo",
-            mirrorFillLight: true,
             mirrorFlip: false,
             mirrorZoom: 1,
         ])

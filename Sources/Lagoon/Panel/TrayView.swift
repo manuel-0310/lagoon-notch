@@ -105,7 +105,10 @@ struct TrayTile: View {
         }
         .frame(width: 100)
         .contentShape(Rectangle())
-        .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
+        .onDrag {
+            app.tray.isDraggingOut = true
+            return NSItemProvider(contentsOf: item.url) ?? NSItemProvider()
+        }
         .onTapGesture(count: 2) { NSWorkspace.shared.open(item.url) }
         .contextMenu {
             Button("Abrir") { NSWorkspace.shared.open(item.url) }

@@ -8,6 +8,7 @@ import SwiftUI
 final class NotchController {
     private let app: AppState
     private var panel: NotchPanel?
+    private var catcher: DropCatcherPanel?
     private var monitors: [Any] = []
     private var observers: [NSObjectProtocol] = []
 
@@ -54,6 +55,7 @@ final class NotchController {
         monitors.removeAll()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
+        catcher?.orderOut(nil)
         panel?.orderOut(nil)
     }
 
@@ -142,12 +144,12 @@ final class NotchController {
                 let pasteboard = NSPasteboard(name: .drag)
                 if pasteboard.changeCount != dragChangeCount {
                     dragChecked = true
-                    // Solo los arrastres que vienen de fuera (Finder, Mail…); los de la bandeja no.
-                    draggingFiles = !isLocal && (pasteboard.types?.contains(.fileURL) ?? false)
+                    // Solo los arrastres que vienen de fuera (Finder, Mail…); los que salen de la bandeja no.
+                    draggingFiles = !app.tray.isDraggingOut && Self.containsFiles(pasteboard)
                 }
             }
             if draggingFiles {
-                model.fileDrag(near: model.dropActivationRect.contains(location))
+                updateFileDrag(at: location)
                 armDragWatchdog()
             }
         case .leftMouseUp:
@@ -155,13 +157,80 @@ final class NotchController {
                 draggingFiles = false
                 dragWatchdog?.cancel()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                    self?.app.notch.fileDragEnded()
+                    self?.endFileDrag()
                 }
             }
+            app.tray.isDraggingOut = false
         default:
             break
         }
         updateMouse(at: location)
+    }
+
+    // MARK: - Arrastrar archivos al notch
+
+    private static func containsFiles(_ pasteboard: NSPasteboard) -> Bool {
+        let types = pasteboard.types ?? []
+        return types.contains(.fileURL) || types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
+    }
+
+    /// En cuanto el archivo se acerca al notch (zona amplia en la parte superior) se abre el modo
+    /// "soltar". Una vez abierto, la zona crece para que no parpadee al moverse.
+    private func updateFileDrag(at location: CGPoint) {
+        let model = app.notch
+        let zone = model.isDropMode ? model.dropApproachRect.insetBy(dx: -120, dy: -120) : model.dropApproachRect
+        let near = zone.contains(location)
+        model.fileDrag(near: near)
+        setCatcherVisible(near)
+    }
+
+    private func endFileDrag() {
+        app.notch.fileDragEnded()
+        setCatcherVisible(false)
+    }
+
+    private func setCatcherVisible(_ visible: Bool) {
+        guard visible else {
+            catcher?.orderOut(nil)
+            return
+        }
+        let catcher = self.catcher ?? makeCatcher()
+        let rect = app.notch.dropCatcherRect
+        if catcher.frame != rect { catcher.setFrame(rect, display: false) }
+        if !catcher.isVisible { catcher.orderFrontRegardless() }
+    }
+
+    private func makeCatcher() -> DropCatcherPanel {
+        let catcher = DropCatcherPanel()
+        catcher.catcherView.onTarget = { [weak self] target in
+            guard let model = self?.app.notch else { return }
+            let tray = target == .tray, airDrop = target == .airDrop
+            guard model.trayDropTargeted != tray || model.airDropTargeted != airDrop else { return }
+            withAnimation(.easeOut(duration: 0.15)) {
+                model.trayDropTargeted = tray
+                model.airDropTargeted = airDrop
+            }
+        }
+        catcher.catcherView.onDrop = { [weak self] target, urls in
+            guard let self else { return }
+            self.draggingFiles = false
+            self.dragWatchdog?.cancel()
+            switch target {
+            case .tray:
+                let added = self.app.tray.add(urls: urls)
+                self.endFileDrag()
+                if self.app.notch.isExpanded {
+                    self.app.notch.select(.tray)
+                } else if added > 0 {
+                    self.app.notch.post(.traySaved)
+                }
+            case .airDrop:
+                self.endFileDrag()
+                AirDrop.share(urls)
+            }
+        }
+        self.catcher = catcher
+        return catcher
     }
 
     /// Por si el sistema no entrega el "soltar" durante un arrastre: sale del modo "soltar"
@@ -172,7 +241,7 @@ final class NotchController {
             guard let self, self.draggingFiles else { return }
             if NSEvent.pressedMouseButtons == 0 {
                 self.draggingFiles = false
-                self.app.notch.fileDragEnded()
+                self.endFileDrag()
             } else {
                 self.armDragWatchdog()
             }
