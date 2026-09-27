@@ -23,7 +23,8 @@ jobs:
           ./scripts/build-app.sh 2>&1 | tee build.log
       - name: Show compiler errors
         if: failure()
-        run: grep -E "error:|warning: unre" build.log | sort -u | head -150 || true
+        run: |
+          grep -E "error:" build.log | sort -u | head -150 || true
 
       - name: Render snapshots
         run: |
