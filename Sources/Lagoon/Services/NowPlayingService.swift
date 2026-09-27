@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import Observation
 import SwiftUI
 
@@ -315,10 +316,13 @@ final class NowPlayingService {
         switch source {
         case .music:
             run("tell application \"Music\" to get raw data of artwork 1 of current track") { result in
-                if let data = result?.data, let image = NSImage(data: data) {
-                    completion(image)
-                } else {
+                guard let data = result?.data else {
                     completion(nil)
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let image = Self.artworkImage(data)
+                    DispatchQueue.main.async { completion(image) }
                 }
             }
         case .spotify:
@@ -328,11 +332,27 @@ final class NowPlayingService {
                     return
                 }
                 URLSession.shared.dataTask(with: url) { data, _, _ in
-                    let image = data.flatMap { NSImage(data: $0) }
+                    let image = data.flatMap(Self.artworkImage)
                     DispatchQueue.main.async { completion(image) }
                 }.resume()
             }
         }
+    }
+
+    /// La portada se muestra como mucho a 150 pt: se decodifica a 320 px en vez de guardar
+    /// en memoria la original (Música puede entregar imágenes de varios miles de píxeles).
+    private static func artworkImage(_ data: Data) -> NSImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: 320,
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return NSImage(data: data)
+        }
+        return NSImage(cgImage: cg, size: .zero)
     }
 
     /// Ejecuta AppleScript en una cola serie (nunca en el hilo principal).

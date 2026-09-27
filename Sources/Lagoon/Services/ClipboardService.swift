@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import Observation
 import SwiftUI
 
@@ -44,7 +45,8 @@ struct ClipItem: Identifiable, Equatable, Codable {
 
 /// Historial del portapapeles. macOS no avisa de los cambios, así que se consulta
 /// solo el contador del portapapeles (un entero) dos veces por segundo, con tolerancia
-/// para que el sistema agrupe los despertares.
+/// para que el sistema agrupe los despertares. No se consulta con el historial desactivado
+/// ni con la pantalla apagada.
 @Observable
 final class ClipboardService {
     var items: [ClipItem] = []
@@ -57,6 +59,9 @@ final class ClipboardService {
     @ObservationIgnored private var ownChangeCount: Int?
     @ObservationIgnored private var thumbnails: [UUID: NSImage] = [:]
     @ObservationIgnored private var saveWork: DispatchWorkItem?
+    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private var historyEnabled = true
+    @ObservationIgnored private var screensAsleep = false
 
     private static let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
     private static let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
@@ -76,10 +81,43 @@ final class ClipboardService {
     func start() {
         load()
         lastChangeCount = NSPasteboard.general.changeCount
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.poll() }
-        timer.tolerance = 0.3
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        historyEnabled = Prefs.bool(Prefs.clipboardEnabled)
+        let workspace = NSWorkspace.shared.notificationCenter
+        observers.append(workspace.addObserver(forName: NSWorkspace.screensDidSleepNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            self?.screensAsleep = true
+            self?.updatePolling()
+        })
+        observers.append(workspace.addObserver(forName: NSWorkspace.screensDidWakeNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            self?.screensAsleep = false
+            self?.updatePolling()
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+                                                                object: nil, queue: .main) { [weak self] _ in
+            self?.updatePolling()
+        })
+        updatePolling()
+    }
+
+    /// El temporizador solo existe con el historial activado y la pantalla encendida.
+    private func updatePolling() {
+        let enabled = Prefs.bool(Prefs.clipboardEnabled)
+        if enabled, !historyEnabled {
+            // Lo copiado con el historial desactivado no se guarda.
+            lastChangeCount = NSPasteboard.general.changeCount
+        }
+        historyEnabled = enabled
+        let wanted = enabled && !screensAsleep
+        if wanted, timer == nil {
+            let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.poll() }
+            timer.tolerance = 0.3
+            RunLoop.main.add(timer, forMode: .common)
+            self.timer = timer
+        } else if !wanted, let timer {
+            timer.invalidate()
+            self.timer = nil
+        }
     }
 
     private func poll() {
@@ -275,13 +313,19 @@ final class ClipboardService {
         return NSImage(contentsOf: Self.imagesDirectory.appendingPathComponent(file))
     }
 
+    /// Miniatura de 88 px leída directamente del archivo: no decodifica ni retiene la imagen completa.
     func thumbnail(for item: ClipItem) -> NSImage? {
         if let cached = thumbnails[item.id] { return cached }
-        guard let image = image(for: item) else { return nil }
-        let thumb = NSImage(size: NSSize(width: 44, height: 44), flipped: false) { rect in
-            image.draw(in: rect, from: .zero, operation: .copy, fraction: 1)
-            return true
-        }
+        guard let file = item.imageFile else { return nil }
+        let url = Self.imagesDirectory.appendingPathComponent(file)
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 88,
+        ]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let thumb = NSImage(cgImage: cg, size: .zero)
         thumbnails[item.id] = thumb
         return thumb
     }

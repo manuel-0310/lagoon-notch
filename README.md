@@ -7,11 +7,14 @@ espejo, reloj mundial, clima, batería de tus dispositivos, volumen y brillo.
 Está hecha en **Swift + SwiftUI** (nativa, sin Electron) y pensada para gastar poco:
 
 - **Sin sondeos**: la música, la batería, el volumen y el calendario funcionan por avisos del sistema.
-  Solo el portapapeles consulta un contador (un entero) dos veces por segundo, porque macOS no avisa,
-  y mientras mantienes pulsado el botón se mira el del arrastre para saber si llevas un archivo.
+  Solo el portapapeles consulta un contador (un entero) dos veces por segundo, porque macOS no avisa
+  (se detiene con la pantalla apagada o si desactivas el historial), y mientras mantienes pulsado
+  el botón se mira el del arrastre para saber si llevas un archivo.
 - **Animaciones continuas con Core Animation** (la onda de la música la pinta el sistema, no la app).
-- Los relojes y contadores solo se actualizan mientras se ven.
+  Con el modo de bajo consumo activado, la onda se queda quieta.
+- Los relojes y contadores solo se actualizan mientras se ven (y la barra de la canción, solo mientras suena).
 - La cámara solo se enciende con la pestaña Espejo abierta.
+- Las portadas y miniaturas se guardan reducidas, no a tamaño original.
 - Un único binario de unos pocos MB; los íconos son una fuente de ~9 KB embebida.
 
 ## Requisitos
@@ -26,14 +29,14 @@ La primera vez:
 ```bash
 git clone https://github.com/manuel-0310/lagoon-notch.git
 cd lagoon-notch
-git checkout claude/stoic-bell-inqz95
+git checkout main
 ```
 
 Para traer cambios nuevos después:
 
 ```bash
 cd lagoon-notch
-git pull origin claude/stoic-bell-inqz95
+git pull origin main
 ```
 
 ## Compilar, instalar y abrir
