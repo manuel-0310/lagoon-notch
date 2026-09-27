@@ -9,14 +9,41 @@ struct WingsView: View {
     @Environment(AppState.self) var app
     let content: WingContent
 
+    /// La portada queda a la misma distancia del borde izquierdo que del inferior (y del superior).
+    private var artworkInset: CGFloat {
+        max(4, (app.notch.geometry.notchHeight - 20) / 2)
+    }
+
+    private var artworkSize: CGFloat {
+        app.notch.geometry.notchHeight - 2 * artworkInset
+    }
+
+    /// Esquinas concéntricas con la esquina de la forma (radio 14).
+    private var artworkRadius: CGFloat {
+        max(5, min(14 - artworkInset, artworkSize * 0.35))
+    }
+
+    private var showsArtwork: Bool {
+        switch content {
+        case .music, .musicPlus: return true
+        default: return false
+        }
+    }
+
     var body: some View {
+        let model = app.notch
         HStack(spacing: 0) {
             left
+                .fixedSize()
+                .padding(.leading, showsArtwork ? artworkInset : 12)
+                .reportsWidth { model.reportWing(.wings(content), left: $0) }
             Spacer(minLength: 0)
             right
+                .fixedSize()
+                .padding(.trailing, content == .music ? artworkInset : 12)
+                .reportsWidth { model.reportWing(.wings(content), right: $0) }
         }
-        .padding(.horizontal, 12)
-        .frame(height: app.notch.geometry.notchHeight)
+        .frame(height: model.geometry.notchHeight)
         .overlay(alignment: .trailing) {
             if content != .privacy {
                 PrivacyDots(vertical: true).padding(.trailing, 3.5)
@@ -28,7 +55,7 @@ struct WingsView: View {
     private var left: some View {
         switch content {
         case .music, .musicPlus:
-            ArtworkView(image: app.music.artwork, size: 20, radius: 5)
+            ArtworkView(image: app.music.artwork, size: artworkSize, radius: artworkRadius)
                 .id(app.music.track?.id ?? "")
                 .transition(.artworkFlip)
         case .timer, .stopwatch:
@@ -146,6 +173,25 @@ struct ClaudeSpinner: View {
     }
 }
 
+/// Mide el ancho de una vista (para ajustar las alas a su contenido).
+private struct WidthReader: View {
+    let report: (CGFloat) -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { report(proxy.size.width) }
+                .onChange(of: proxy.size.width) { _, width in report(width) }
+        }
+    }
+}
+
+private extension View {
+    func reportsWidth(_ report: @escaping (CGFloat) -> Void) -> some View {
+        background(WidthReader(report: report))
+    }
+}
+
 /// "82 %" + pila, en verde.
 struct ChargingLevel: View {
     @Environment(AppState.self) var app
@@ -223,13 +269,19 @@ struct WingActivityView: View {
     let activity: LiveActivity
 
     var body: some View {
+        let model = app.notch
         HStack(spacing: 0) {
             left
+                .fixedSize()
+                .padding(.leading, 12)
+                .reportsWidth { model.reportWing(.activity(activity), left: $0) }
             Spacer(minLength: 0)
             right
+                .fixedSize()
+                .padding(.trailing, 12)
+                .reportsWidth { model.reportWing(.activity(activity), right: $0) }
         }
-        .padding(.horizontal, 12)
-        .frame(height: app.notch.geometry.notchHeight)
+        .frame(height: model.geometry.notchHeight)
         .overlay(alignment: .bottom) {
             if activity == .chargerConnected { ChargeFlash() }
         }

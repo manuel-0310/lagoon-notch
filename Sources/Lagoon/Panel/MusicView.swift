@@ -76,7 +76,7 @@ struct MusicScrubber: View {
 
     var body: some View {
         let music = app.music
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        TimelineView(.periodic(from: .now, by: music.isPlaying ? 1 : 3600)) { context in
             let duration = music.track?.duration ?? 0
             let progress = dragValue ?? music.progress(at: context.date)
             let elapsed = progress * duration

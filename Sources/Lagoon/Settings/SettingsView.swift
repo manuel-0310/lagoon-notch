@@ -26,7 +26,6 @@ struct SettingsView: View {
     @AppStorage(Prefs.showEvents) private var showEvents = true
     @AppStorage(Prefs.eventLeadMinutes) private var eventLeadMinutes = 5
     @AppStorage(Prefs.showReminders) private var showReminders = true
-    @AppStorage(Prefs.showClipboardCopied) private var showClipboardCopied = true
 
     @AppStorage(Prefs.timerSound) private var timerSound = true
     @AppStorage(Prefs.pomodoroBreakMinutes) private var breakMinutes = 5
@@ -130,7 +129,6 @@ struct SettingsView: View {
                     Stepper("Avisar \(eventLeadMinutes) min antes", value: $eventLeadMinutes, in: 1...30)
                 }
                 Toggle("Recordatorios", isOn: $showReminders)
-                Toggle("Copiado al portapapeles", isOn: $showClipboardCopied)
                 Toggle("Cambios del modo Concentración", isOn: $showFocusChanges)
                 if showFocusChanges && app.focus.access == .denied {
                     HStack {

@@ -28,7 +28,6 @@ enum Prefs {
     static let showEvents = "showEvents"
     static let eventLeadMinutes = "eventLeadMinutes"
     static let showReminders = "showReminders"
-    static let showClipboardCopied = "showClipboardCopied"
     static let showFocusChanges = "showFocusChanges"
     static let showPrivacyIndicators = "showPrivacyIndicators"
     static let showPrivacyAlerts = "showPrivacyAlerts"
@@ -100,7 +99,6 @@ enum Prefs {
             showEvents: true,
             eventLeadMinutes: 5,
             showReminders: true,
-            showClipboardCopied: true,
             showFocusChanges: true,
             showPrivacyIndicators: true,
             showPrivacyAlerts: true,

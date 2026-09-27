@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var state: AppState?
     private var notchController: NotchController?
     private var lockScreen: LockScreenController?
@@ -56,9 +56,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.isReleasedWhenClosed = false
             window.setContentSize(NSSize(width: 560, height: 680))
             window.center()
+            window.delegate = self
             settingsWindow = window
         }
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Al cerrar los Ajustes se libera la ventana, y con ella su comprobación periódica de permisos.
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        // En la siguiente vuelta, cuando la ventana ya terminó de cerrarse.
+        DispatchQueue.main.async { [weak self] in
+            if self?.settingsWindow === window { self?.settingsWindow = nil }
+        }
     }
 }

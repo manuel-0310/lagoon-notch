@@ -12,10 +12,13 @@ final class NotchController {
     private var monitors: [Any] = []
     private var observers: [NSObjectProtocol] = []
 
-    private var dragChangeCount = 0
-    private var dragChecked = false
+    private var dragChangeCount = NSPasteboard(name: .drag).changeCount
     private var draggingFiles = false
-    private var dragWatchdog: DispatchWorkItem?
+    /// Lo que se arrastra no son archivos (texto, un enlace…): no hace falta sondear.
+    private var draggingOther = false
+    private var pressLocation: CGPoint = .zero
+    private var pressStartedInPanel = false
+    private var pressTimer: Timer?
     private var scrollAccumulator: CGFloat = 0
     private var scrollLocked = false
     private let fullscreen = FullscreenWatcher()
@@ -60,6 +63,8 @@ final class NotchController {
 
     func stop() {
         fullscreen.stop()
+        pressTimer?.invalidate()
+        pressTimer = nil
         monitors.forEach { NSEvent.removeMonitor($0) }
         monitors.removeAll()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
@@ -83,6 +88,9 @@ final class NotchController {
         hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
         self.panel = panel
+        // La ventana que recibe los archivos existe desde el principio (oculta), así ya está
+        // registrada como destino cuando empieza un arrastre.
+        catcher = makeCatcher()
         applyVisibility()
     }
 
@@ -143,36 +151,17 @@ final class NotchController {
         let model = app.notch
         switch event.type {
         case .leftMouseDown, .rightMouseDown:
-            dragChangeCount = NSPasteboard(name: .drag).changeCount
-            dragChecked = false
-            draggingFiles = false
+            if event.type == .leftMouseDown {
+                beginPress(at: location, inPanel: model.interactiveRect.contains(location))
+            }
             if !isLocal, !model.interactiveRect.contains(location) {
                 model.clickedOutside()
             }
         case .leftMouseDragged:
-            if !dragChecked {
-                let pasteboard = NSPasteboard(name: .drag)
-                if pasteboard.changeCount != dragChangeCount {
-                    dragChecked = true
-                    // Solo los arrastres que vienen de fuera (Finder, Mail…); los que salen de la bandeja no.
-                    // En la pestaña Atajos, las apps se sueltan en la propia pestaña.
-                    let onShortcuts = model.isExpanded && model.tab == .shortcuts
-                    draggingFiles = !app.tray.isDraggingOut && !onShortcuts && Self.containsFiles(pasteboard)
-                }
-            }
-            if draggingFiles {
-                updateFileDrag(at: location)
-                armDragWatchdog()
-            }
+            if pressTimer == nil { startPressTimer() }
+            checkFileDrag()
         case .leftMouseUp:
-            if draggingFiles {
-                draggingFiles = false
-                dragWatchdog?.cancel()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                    self?.endFileDrag()
-                }
-            }
-            app.tray.isDraggingOut = false
+            endPress()
         default:
             break
         }
@@ -181,39 +170,138 @@ final class NotchController {
 
     // MARK: - Arrastrar archivos al notch
 
-    private static func containsFiles(_ pasteboard: NSPasteboard) -> Bool {
-        let types = pasteboard.types ?? []
-        return types.contains(.fileURL) || types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
+    /// Cada vez que se pulsa el botón se vigila si empieza un arrastre de archivos. Mientras siga
+    /// pulsado se revisa 30 veces por segundo el contador del portapapeles de arrastre (un entero)
+    /// y la posición del cursor: durante un arrastre, macOS no siempre entrega los eventos del
+    /// ratón a otras apps. Al soltar el botón se deja de revisar.
+    private func beginPress(at location: CGPoint, inPanel: Bool) {
+        dragChangeCount = NSPasteboard(name: .drag).changeCount
+        draggingFiles = false
+        draggingOther = false
+        pressLocation = location
+        pressStartedInPanel = inPanel
+        app.tray.isDraggingOut = false
+        startPressTimer()
     }
 
-    /// En cuanto el archivo se acerca al notch (zona amplia en la parte superior) se abre el modo
-    /// "soltar". Una vez abierto, la zona crece para que no parpadee al moverse.
+    private func startPressTimer() {
+        pressTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if NSEvent.pressedMouseButtons & 1 == 0 {
+                self.endPress()
+            } else {
+                self.checkFileDrag()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        pressTimer = timer
+    }
+
+    private func checkFileDrag() {
+        let location = NSEvent.mouseLocation
+        // Solo los arrastres que vienen de fuera (Finder, el Dock…); los que salen de la bandeja no.
+        // En la pestaña Atajos, las apps se sueltan en la propia pestaña.
+        let onShortcuts = app.notch.isExpanded && app.notch.tab == .shortcuts
+        if !draggingFiles, !draggingOther, !app.tray.isDraggingOut, !onShortcuts {
+            let pasteboard = NSPasteboard(name: .drag)
+            if pasteboard.changeCount != dragChangeCount {
+                let types = pasteboard.types ?? []
+                if DraggedFiles.present(in: types) {
+                    draggingFiles = true
+                } else if !types.isEmpty {
+                    draggingOther = true
+                }
+            }
+        }
+        if draggingFiles {
+            updateFileDrag(at: location)
+        } else {
+            updateProbe(at: location)
+        }
+    }
+
+    private func endPress() {
+        pressTimer?.invalidate()
+        pressTimer = nil
+        dragChangeCount = NSPasteboard(name: .drag).changeCount
+        app.tray.isDraggingOut = false
+        draggingOther = false
+        guard draggingFiles else {
+            setCatcher(.hidden)
+            return
+        }
+        draggingFiles = false
+        // Deja que el "soltar" llegue antes a la ventana que recibe los archivos.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, !self.draggingFiles else { return }
+            self.endFileDrag()
+        }
+    }
+
+    /// Al acercar el archivo al notch se abre el modo "soltar". Las zonas quedan bajo la barra de
+    /// menús, así no hace falta llegar al borde superior, donde macOS abre Mission Control.
+    /// Una vez abierto, la zona crece un poco para que no parpadee al moverse.
     private func updateFileDrag(at location: CGPoint) {
         let model = app.notch
-        let zone = model.isDropMode ? model.dropApproachRect.insetBy(dx: -120, dy: -120) : model.dropApproachRect
-        let near = zone.contains(location)
+        let zone = model.isDropMode ? model.dropApproachRect.insetBy(dx: -60, dy: -60) : model.dropApproachRect
+        let near = panel?.isVisible == true && zone.contains(location)
         model.fileDrag(near: near)
-        setCatcherVisible(near)
+        setCatcher(near ? .zones : .hidden)
+    }
+
+    /// Algunos orígenes (las pilas del Dock, por ejemplo) no usan el portapapeles de arrastre común,
+    /// así que desde fuera no se sabe qué llevas. Si con el botón pulsado el cursor se acerca al
+    /// notch, la ventana invisible se pone sobre esa zona y le pregunta al propio arrastre: si son
+    /// archivos se abre el modo "soltar"; si no, se aparta. Mover una ventana o seleccionar texto no
+    /// se ve afectado: el ratón sigue yendo a la ventana donde empezó.
+    private func updateProbe(at location: CGPoint) {
+        let moved = hypot(location.x - pressLocation.x, location.y - pressLocation.y) > 6
+        let probe = moved && !draggingOther && !pressStartedInPanel && !app.tray.isDraggingOut
+            && panel?.isVisible == true && app.notch.dropApproachRect.contains(location)
+        setCatcher(probe ? .probe : .hidden)
     }
 
     private func endFileDrag() {
         app.notch.fileDragEnded()
-        setCatcherVisible(false)
+        setCatcher(.hidden)
     }
 
-    private func setCatcherVisible(_ visible: Bool) {
-        guard visible else {
-            catcher?.orderOut(nil)
+    private enum CatcherMode { case hidden, probe, zones }
+
+    private func setCatcher(_ mode: CatcherMode) {
+        guard let catcher else { return }
+        catcher.catcherView.acceptsDrops = mode == .zones
+        let rect: CGRect
+        switch mode {
+        case .hidden:
+            if catcher.isVisible { catcher.orderOut(nil) }
             return
+        case .probe:
+            rect = app.notch.dropApproachRect
+        case .zones:
+            rect = app.notch.dropCatcherRect
         }
-        let catcher = self.catcher ?? makeCatcher()
-        let rect = app.notch.dropCatcherRect
         if catcher.frame != rect { catcher.setFrame(rect, display: false) }
         if !catcher.isVisible { catcher.orderFrontRegardless() }
     }
 
     private func makeCatcher() -> DropCatcherPanel {
-        let catcher = DropCatcherPanel()
+        let catcher = DropCatcherPanel(frame: app.notch.dropCatcherRect)
+        catcher.catcherView.onFilesEntered = { [weak self] in
+            guard let self, !self.draggingFiles else { return }
+            self.draggingFiles = true
+            if self.pressTimer == nil { self.startPressTimer() }
+            self.updateFileDrag(at: NSEvent.mouseLocation)
+        }
+        catcher.catcherView.onOtherEntered = { [weak self] in
+            guard let self, !self.draggingFiles else { return }
+            self.draggingOther = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.draggingFiles else { return }
+                self.setCatcher(.hidden)
+            }
+        }
         catcher.catcherView.onTarget = { [weak self] target in
             guard let model = self?.app.notch else { return }
             let tray = target == .tray, airDrop = target == .airDrop
@@ -226,7 +314,6 @@ final class NotchController {
         catcher.catcherView.onDrop = { [weak self] target, urls in
             guard let self else { return }
             self.draggingFiles = false
-            self.dragWatchdog?.cancel()
             switch target {
             case .tray:
                 let added = self.app.tray.add(urls: urls)
@@ -241,32 +328,16 @@ final class NotchController {
                 AirDrop.share(urls)
             }
         }
-        self.catcher = catcher
         return catcher
-    }
-
-    /// Por si el sistema no entrega el "soltar" durante un arrastre: sale del modo "soltar"
-    /// en cuanto no hay ningún botón pulsado.
-    private func armDragWatchdog() {
-        dragWatchdog?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, self.draggingFiles else { return }
-            if NSEvent.pressedMouseButtons == 0 {
-                self.draggingFiles = false
-                self.endFileDrag()
-            } else {
-                self.armDragWatchdog()
-            }
-        }
-        dragWatchdog = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
     }
 
     private func updateMouse(at location: CGPoint) {
         guard let panel else { return }
         let model = app.notch
         let inside = model.interactiveRect.contains(location)
-        let accepts = inside || model.isDropMode
+        // En modo "soltar" los archivos los recibe DropCatcherPanel; esta ventana deja pasar el
+        // ratón para no tapar a las apps de debajo si sueltas el archivo en otro sitio.
+        let accepts = inside && !model.isDropMode
         if panel.ignoresMouseEvents == accepts {
             panel.ignoresMouseEvents = !accepts
         }
