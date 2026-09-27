@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es</string>
+	<key>CFBundleExecutable</key>
+	<string>Lagoon</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.lagoon.notch</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Lagoon</string>
+	<key>CFBundleDisplayName</key>
+	<string>Lagoon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Lagoon usa la cámara solo para el espejo, y únicamente mientras el panel está abierto.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Lagoon muestra tus próximos eventos y te avisa antes de cada reunión.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Lagoon muestra tus próximos eventos y te avisa antes de cada reunión.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Lagoon muestra tus recordatorios de hoy y te permite marcarlos como hechos.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Lagoon muestra tus recordatorios de hoy y te permite marcarlos como hechos.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Lagoon usa tu ubicación aproximada para mostrar el clima.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lagoon usa tu ubicación aproximada para mostrar el clima.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Lagoon muestra la batería de tus AirPods y otros dispositivos Bluetooth.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Lagoon necesita controlar Música y Spotify para mostrar la canción actual y sus controles.</string>
+</dict>
+</plist>
