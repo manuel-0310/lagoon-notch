@@ -58,12 +58,12 @@ enum PanelTab: Int, CaseIterable, Identifiable {
     }
 
     static var left: [PanelTab] {
-        let hidden = hidden
+        let hidden = Self.hidden
         return allLeft.filter { !hidden.contains($0) }
     }
 
     static var right: [PanelTab] {
-        let hidden = hidden
+        let hidden = Self.hidden
         return allRight.filter { !hidden.contains($0) }
     }
 
