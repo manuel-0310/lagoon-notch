@@ -39,6 +39,11 @@ enum Palette {
     /// oklch(0.8 0.14 70)
     static let orangeDot = Color(hex: 0xF7AC4D)
 
+    /// Arcilla de Claude Code.
+    static let claude = Color(hex: 0xE3876A)
+    /// Morado (modos de Concentración).
+    static let purple = Color(hex: 0xA78BFA)
+
     /// Texto secundario: rgba(255,255,255,.55)
     static let secondary = Color.white(0.55)
     /// Fondo de tarjetas: rgba(255,255,255,.07)

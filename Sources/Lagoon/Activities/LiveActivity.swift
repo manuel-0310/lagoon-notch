@@ -16,12 +16,17 @@ enum LiveActivity: Equatable {
     case copied(ClipKind)
     case traySaved
     case welcome
+    case focusChanged(FocusMode, active: Bool)
+    case privacyStarted(PrivacyAlert)
+    case shortcutRan(name: String, ok: Bool)
+    case claudePermission(ClaudePermissionRequest)
+    case claudeNotice(ClaudeNotice)
 
     enum Style { case wing, block }
 
     var style: Style {
         switch self {
-        case .chargerConnected, .chargerDisconnected, .copied, .traySaved: return .wing
+        case .chargerConnected, .chargerDisconnected, .copied, .traySaved, .shortcutRan: return .wing
         default: return .block
         }
     }
@@ -42,6 +47,11 @@ enum LiveActivity: Equatable {
         case let .copied(k): return "copied-\(k.rawValue)"
         case .traySaved: return "tray-saved"
         case .welcome: return "welcome"
+        case let .focusChanged(mode, active): return "focus-\(mode.id)-\(active)"
+        case let .privacyStarted(alert): return "privacy-\(alert.kind.rawValue)-\(alert.appName ?? "")"
+        case let .shortcutRan(name, ok): return "shortcut-\(name)-\(ok)"
+        case let .claudePermission(request): return "claude-permission-\(request.id)"
+        case let .claudeNotice(notice): return "claude-notice-\(notice.sessionID)-\(notice.kind.rawValue)"
         }
     }
 
@@ -49,14 +59,25 @@ enum LiveActivity: Equatable {
 
     /// Se queda hasta que el usuario actúa.
     var isSticky: Bool {
-        if case .timerFinished = self { return true }
-        return false
+        switch self {
+        case .timerFinished, .claudePermission: return true
+        default: return false
+        }
+    }
+
+    /// Se muestra aunque el notch esté escondido por una app a pantalla completa.
+    var isImportant: Bool {
+        switch self {
+        case .timerFinished, .lowBattery, .claudePermission, .upcomingEvent: return true
+        case .volume, .brightness: return Prefs.bool(Prefs.replaceSystemHUD)
+        default: return false
+        }
     }
 
     /// Tiene botones: el hover no abre el panel para no estorbar.
     var isInteractive: Bool {
         switch self {
-        case .lowBattery, .timerFinished, .upcomingEvent, .reminderDue: return true
+        case .lowBattery, .timerFinished, .upcomingEvent, .reminderDue, .claudePermission, .claudeNotice: return true
         default: return false
         }
     }
@@ -64,20 +85,24 @@ enum LiveActivity: Equatable {
     var priority: Int {
         switch self {
         case .timerFinished: return 90
+        case .claudePermission: return 85
         case .volume, .brightness: return 80
         case .lowBattery: return 70
         case .upcomingEvent, .reminderDue: return 60
-        case .airPodsConnected: return 50
+        case .privacyStarted: return 55
+        case .claudeNotice: return 52
+        case .airPodsConnected, .focusChanged: return 50
         case .chargerConnected, .chargerDisconnected: return 40
         case .songChange: return 30
-        case .traySaved, .copied: return 20
+        case .traySaved, .copied, .shortcutRan: return 20
         case .welcome: return 10
         }
     }
 
     func duration(base: TimeInterval) -> TimeInterval? {
         switch self {
-        case .timerFinished: return nil
+        case .timerFinished, .claudePermission: return nil
+        case .claudeNotice: return max(base, 6)
         case .volume, .brightness: return 1.5
         case .lowBattery, .upcomingEvent, .reminderDue: return max(base, 8)
         case .welcome: return max(base, 6)
@@ -89,6 +114,7 @@ enum LiveActivity: Equatable {
     var wingWidth: CGFloat {
         switch self {
         case .chargerConnected, .chargerDisconnected: return 70
+        case .shortcutRan: return 80
         default: return 60
         }
     }
@@ -101,6 +127,9 @@ enum LiveActivity: Equatable {
         case .timerFinished: return 470
         case .volume, .brightness: return 320
         case .reminderDue: return 420
+        case .focusChanged, .privacyStarted: return 380
+        case .claudePermission: return 520
+        case .claudeNotice: return 440
         default: return 400
         }
     }
@@ -114,6 +143,9 @@ enum LiveActivity: Equatable {
         case .volume, .brightness: return 20
         case .upcomingEvent: return 45
         case .reminderDue: return 30
+        case .focusChanged, .privacyStarted: return 36
+        case .claudePermission: return 62
+        case .claudeNotice: return 40
         default: return 44
         }
     }
@@ -124,6 +156,8 @@ enum LiveActivity: Equatable {
         case .chargerConnected: return Palette.green.opacity(0.55)
         case .lowBattery: return Palette.red.opacity(0.5)
         case .timerFinished: return Palette.orange.opacity(0.6)
+        case .claudePermission: return Palette.claude.opacity(0.6)
+        case let .privacyStarted(alert): return alert.kind.color.opacity(0.5)
         default: return nil
         }
     }
@@ -133,6 +167,7 @@ enum LiveActivity: Equatable {
         switch self {
         case .chargerConnected: return (Palette.green.opacity(0.45), 11)
         case .timerFinished: return (Palette.orange.opacity(0.4), 13)
+        case .claudePermission: return (Palette.claude.opacity(0.35), 13)
         default: return nil
         }
     }
@@ -150,16 +185,21 @@ enum WingContent: Equatable {
     case stopwatch
     /// Cargando (rayo + porcentaje + pila).
     case charging
+    /// Claude Code trabajando (ícono animado + herramienta actual).
+    case claude
+    /// Solo el indicador de privacidad (cámara, micrófono o grabación en uso).
+    case privacy
     /// Dos actividades: portada a la izquierda, la de mayor prioridad a la derecha.
     case musicPlus(Secondary)
 
-    enum Secondary: Equatable { case timer, pomodoro, stopwatch, charging }
+    enum Secondary: Equatable { case timer, pomodoro, stopwatch, charging, claude }
 
     var wingWidth: CGFloat {
         switch self {
         case .music: return 50
-        case .timer, .stopwatch, .charging: return 45
+        case .timer, .stopwatch, .charging, .privacy: return 45
         case .pomodoro, .musicPlus: return 60
+        case .claude: return 70
         }
     }
 }

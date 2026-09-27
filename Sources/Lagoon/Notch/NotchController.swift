@@ -18,6 +18,7 @@ final class NotchController {
     private var dragWatchdog: DispatchWorkItem?
     private var scrollAccumulator: CGFloat = 0
     private var scrollLocked = false
+    private let fullscreen = FullscreenWatcher()
 
     init(app: AppState) {
         self.app = app
@@ -37,6 +38,9 @@ final class NotchController {
         buildPanel()
         installMonitors()
 
+        fullscreen.onChange = { [weak self] value in self?.app.notch.setFullscreen(value) }
+        fullscreen.start()
+
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.reposition() })
@@ -47,10 +51,15 @@ final class NotchController {
 
         observers.append(NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.applyVisibility() })
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.applyVisibility()
+            self.app.notch.setFullscreen(self.fullscreen.isFullscreen)
+        })
     }
 
     func stop() {
+        fullscreen.stop()
         monitors.forEach { NSEvent.removeMonitor($0) }
         monitors.removeAll()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
@@ -86,6 +95,7 @@ final class NotchController {
         }
         panel.setFrame(geometry.windowFrame, display: true)
         applyVisibility()
+        fullscreen.scheduleChecks()
     }
 
     private func applyVisibility() {

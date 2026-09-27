@@ -8,6 +8,9 @@ enum Prefs {
     static let hoverDelay = "hoverDelay"
     static let showOnScreensWithoutNotch = "showOnScreensWithoutNotch"
     static let didShowWelcome = "didShowWelcome"
+    static let hiddenTabs = "hiddenTabs"
+    static let hideInFullscreen = "hideInFullscreen"
+    static let fullscreenShowImportant = "fullscreenShowImportant"
 
     // Apariencia
     static let animationIntensity = "animationIntensity"
@@ -26,6 +29,30 @@ enum Prefs {
     static let eventLeadMinutes = "eventLeadMinutes"
     static let showReminders = "showReminders"
     static let showClipboardCopied = "showClipboardCopied"
+    static let showFocusChanges = "showFocusChanges"
+    static let showPrivacyIndicators = "showPrivacyIndicators"
+    static let showPrivacyAlerts = "showPrivacyAlerts"
+    static let detectScreenRecording = "detectScreenRecording"
+
+    // Música
+    static let musicAllApps = "musicAllApps"
+
+    // Pantalla de bloqueo
+    static let lockScreenEnabled = "lockScreenEnabled"
+    static let lockScreenMusic = "lockScreenMusic"
+    static let lockScreenTimer = "lockScreenTimer"
+    static let lockScreenCharging = "lockScreenCharging"
+    static let lockScreenWeather = "lockScreenWeather"
+
+    // Atajos
+    static let favoriteShortcuts = "favoriteShortcuts"
+    static let favoriteApps = "favoriteApps"
+
+    // Claude Code
+    static let claudeWings = "claudeWings"
+    static let claudePermissions = "claudePermissions"
+    static let claudeShowDone = "claudeShowDone"
+    static let claudePreviousStatusLine = "claudePreviousStatusLine"
 
     // Timer
     static let timerSound = "timerSound"
@@ -57,6 +84,9 @@ enum Prefs {
             hoverToOpen: true,
             hoverDelay: 0.15,
             showOnScreensWithoutNotch: true,
+            hiddenTabs: "",
+            hideInFullscreen: true,
+            fullscreenShowImportant: true,
             animationIntensity: AnimationIntensity.normal.rawValue,
             showSongChange: true,
             showMusicWings: true,
@@ -71,6 +101,21 @@ enum Prefs {
             eventLeadMinutes: 5,
             showReminders: true,
             showClipboardCopied: true,
+            showFocusChanges: true,
+            showPrivacyIndicators: true,
+            showPrivacyAlerts: true,
+            detectScreenRecording: true,
+            musicAllApps: true,
+            lockScreenEnabled: true,
+            lockScreenMusic: true,
+            lockScreenTimer: true,
+            lockScreenCharging: true,
+            lockScreenWeather: true,
+            favoriteShortcuts: "[]",
+            favoriteApps: "[]",
+            claudeWings: true,
+            claudePermissions: true,
+            claudeShowDone: true,
             timerSound: true,
             pomodoroFocusMinutes: 25,
             pomodoroBreakMinutes: 5,

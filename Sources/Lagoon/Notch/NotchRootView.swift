@@ -36,6 +36,7 @@ struct NotchRootView: View {
                     .transition(.opacity)
             }
         }
+        .opacity(model.shapeHidden ? 0 : 1)
         .contentShape(NotchShape(radius: model.cornerRadius))
         .onTapGesture { model.handleTap() }
         .contextMenu { NotchContextMenu() }

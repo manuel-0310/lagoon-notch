@@ -15,7 +15,10 @@ watch tablet_mac cast flag schedule alarm event open_in_new my_location edit log
 notifications graphic_eq radio_button_checked palette drag_indicator repeat repeat_one flip zoom_in remove
 battery_full battery_charging_full power sync lock keyboard_return more_horiz info warning public arrow_back
 expand_more video_call call language brightness_low brightness_high hourglass_top timer_off av_timer add_circle
-account_circle quick_reference_all keep brightness_medium""".split()
+account_circle quick_reference_all keep brightness_medium
+apps layers memory developer_board device_thermostat speed hard_drive arrow_upward arrow_downward mic
+screen_record do_not_disturb_on work self_improvement directions_car person menu_book smart_toy terminal pending
+done_all block psychology lock_open data_usage play_circle error bar_chart visibility_off north_east""".split()
 
 # uso: python3 tools/build_icon_font.py material-symbols-rounded.woff2 LagoonSymbols.ttf Sources/Lagoon/Design/IconFontData.swift
 src = sys.argv[1]; out = sys.argv[2]

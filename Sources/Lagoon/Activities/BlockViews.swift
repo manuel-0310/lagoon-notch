@@ -43,6 +43,14 @@ struct BlockActivityView: View {
             ReminderBlock(reminder: reminder)
         case .welcome:
             WelcomeBlock()
+        case let .focusChanged(mode, active):
+            FocusBlock(mode: mode, active: active)
+        case let .privacyStarted(alert):
+            PrivacyBlock(alert: alert)
+        case let .claudePermission(request):
+            ClaudePermissionBlock(request: request)
+        case let .claudeNotice(notice):
+            ClaudeNoticeBlock(notice: notice)
         default:
             EmptyView()
         }
@@ -257,6 +265,45 @@ struct ReminderBlock: View {
             app.calendar.snooze(reminder)
             app.notch.dismissTransient()
         }
+    }
+}
+
+// MARK: - Concentración
+
+struct FocusBlock: View {
+    let mode: FocusMode
+    let active: Bool
+
+    var body: some View {
+        ZStack {
+            Circle().fill(mode.tint.opacity(active ? 0.22 : 0.1))
+            Icon(mode.icon, size: 19, color: active ? mode.tint : .white(0.5))
+        }
+        .frame(width: 36, height: 36)
+        BlockText(title: mode.name, subtitle: active ? "Activado" : "Desactivado")
+        if active {
+            Text("Concentración")
+                .lagoonFont(11, .semibold)
+                .foregroundStyle(mode.tint)
+        }
+    }
+}
+
+// MARK: - Privacidad
+
+struct PrivacyBlock: View {
+    let alert: PrivacyAlert
+
+    var body: some View {
+        ZStack {
+            Circle().fill(alert.kind.color.opacity(0.2))
+            Icon(alert.kind.icon, size: 19, color: alert.kind.color)
+        }
+        .frame(width: 36, height: 36)
+        BlockText(title: alert.title, subtitle: alert.subtitle)
+        Circle()
+            .fill(alert.kind.color)
+            .frame(width: 8, height: 8)
     }
 }
 

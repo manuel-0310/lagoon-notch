@@ -16,6 +16,11 @@ final class AppState: @unchecked Sendable {
     let tray = TrayService()
     let timers = TimerService()
     let camera = CameraService()
+    let privacy = PrivacyService()
+    let focus = FocusService()
+    let system = SystemMonitorService()
+    let shortcuts = ShortcutsService()
+    let claude = ClaudeService()
 
     @ObservationIgnored let mediaKeys = MediaKeyTap()
     @ObservationIgnored var openSettings: () -> Void = {}
@@ -31,6 +36,11 @@ final class AppState: @unchecked Sendable {
         clipboard.notch = notch
         tray.notch = notch
         timers.notch = notch
+        privacy.notch = notch
+        focus.notch = notch
+        shortcuts.notch = notch
+        claude.notch = notch
+        privacy.ownCameraActive = { [unowned self] in self.camera.session.isRunning }
         notch.wingsProvider = { [unowned self] in self.computeWings() }
     }
 
@@ -43,12 +53,16 @@ final class AppState: @unchecked Sendable {
         clipboard.start()
         calendar.start()
         bluetooth.start()
+        privacy.start()
+        focus.start()
+        claude.start()
         configureMediaKeys()
         observeWings()
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             self?.configureMediaKeys()
+            self?.privacy.applyScreenPreference()
             self?.notch.refresh()
         }
         notch.refresh(animated: false)
@@ -56,7 +70,9 @@ final class AppState: @unchecked Sendable {
 
     // MARK: - Alas en estado continuo
 
-    /// Izquierda música; derecha la actividad de mayor prioridad (timer > cronómetro > carga).
+    /// Izquierda música; derecha la actividad de mayor prioridad
+    /// (timer > cronómetro > Claude Code trabajando > carga). Los puntos de privacidad se dibujan
+    /// encima de cualquier ala; si no hay nada más, tienen su propia ala.
     func computeWings() -> WingContent? {
         let musicOn = Prefs.bool(Prefs.showMusicWings) && music.isPlaying && music.track != nil
         var secondary: WingContent.Secondary?
@@ -64,6 +80,8 @@ final class AppState: @unchecked Sendable {
             secondary = timers.activeKind == .pomodoro ? .pomodoro : .timer
         } else if timers.isStopwatchRunning {
             secondary = .stopwatch
+        } else if Prefs.bool(Prefs.claudeWings) && claude.isWorking {
+            secondary = .claude
         } else if Prefs.bool(Prefs.showChargingWings) && battery.isCharging {
             secondary = .charging
         }
@@ -74,7 +92,8 @@ final class AppState: @unchecked Sendable {
         case (false, .pomodoro?): return .pomodoro
         case (false, .stopwatch?): return .stopwatch
         case (false, .charging?): return .charging
-        case (false, nil): return nil
+        case (false, .claude?): return .claude
+        case (false, nil): return privacy.activeKinds.isEmpty ? nil : .privacy
         }
     }
 

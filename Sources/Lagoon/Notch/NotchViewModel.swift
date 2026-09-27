@@ -26,6 +26,10 @@ final class NotchViewModel {
     var isHovering = false
     var isExpanded = false
     var isDropMode = false
+    /// La app al frente está a pantalla completa: el notch se esconde hasta pasar el cursor.
+    private(set) var isFullscreenHidden = false
+    /// La forma está escondida (pantalla completa, sin hover y sin nada importante que mostrar).
+    private(set) var shapeHidden = false
     var trayDropTargeted = false
     var airDropTargeted = false
     var tab: PanelTab = .home
@@ -65,9 +69,29 @@ final class NotchViewModel {
     private func resolve() -> Presentation {
         if isDropMode { return .drop }
         if isExpanded { return .expanded }
+        if isFullscreenHidden, !isHovering {
+            // A pantalla completa solo baja lo importante (si así se eligió en Ajustes).
+            if let transient, transient.isImportant, Prefs.bool(Prefs.fullscreenShowImportant) {
+                return .activity(transient)
+            }
+            return .idle
+        }
         if let transient { return .activity(transient) }
         if let wings = wingsProvider() { return .wings(wings) }
         return .idle
+    }
+
+    func setFullscreen(_ fullscreen: Bool) {
+        let hide = fullscreen && Prefs.bool(Prefs.hideInFullscreen)
+        guard hide != isFullscreenHidden else { return }
+        isFullscreenHidden = hide
+        refresh()
+    }
+
+    private func updateShapeHidden(for next: Presentation) {
+        let hide = isFullscreenHidden && !isHovering && next == .idle
+        guard hide != shapeHidden else { return }
+        withAnimation(hide ? .easeIn(duration: 0.18) : .easeOut(duration: 0.15)) { shapeHidden = hide }
     }
 
     func spec(for presentation: Presentation) -> ShapeSpec {
@@ -106,6 +130,7 @@ final class NotchViewModel {
     func refresh(animated: Bool = true) {
         let next = resolve()
         let target = spec(for: next)
+        updateShapeHidden(for: next)
 
         if next == current {
             if target != currentSpec {
@@ -301,7 +326,7 @@ final class NotchViewModel {
             tab = target.0
             subpage = target.1
         } else if !isExpanded {
-            tab = lastTab
+            tab = PanelTab.hidden.contains(lastTab) ? .home : lastTab
             subpage = nil
         }
         if let transient, !transient.isSticky {
@@ -340,7 +365,9 @@ final class NotchViewModel {
         case .timerFinished: return (.timer, nil)
         case .copied: return (.clipboard, nil)
         case .traySaved: return (.tray, nil)
-        case .welcome: return (.home, nil)
+        case .welcome, .focusChanged, .privacyStarted: return (.home, nil)
+        case .shortcutRan: return (.shortcuts, nil)
+        case .claudePermission, .claudeNotice: return (.claude, nil)
         }
     }
 
@@ -370,9 +397,14 @@ final class NotchViewModel {
 
     /// Deslizar con dos dedos.
     func swipe(_ direction: Int) {
-        let index = tab.rawValue + direction
-        guard let newTab = PanelTab(rawValue: index) else { return }
-        select(newTab)
+        let tabs = PanelTab.visible
+        guard let current = tabs.firstIndex(of: tab) else {
+            select(.home)
+            return
+        }
+        let index = current + direction
+        guard tabs.indices.contains(index) else { return }
+        select(tabs[index])
     }
 
     // MARK: - Arrastrar archivos

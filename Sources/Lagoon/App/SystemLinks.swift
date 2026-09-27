@@ -3,7 +3,7 @@ import AppKit
 /// Atajos a paneles de Ajustes del Sistema.
 enum SystemLinks {
     enum Pane {
-        case battery, camera, accessibility, location, automation, calendars, reminders, bluetooth, loginItems
+        case battery, camera, accessibility, location, automation, calendars, reminders, bluetooth, loginItems, fullDiskAccess, focus
     }
 
     static func open(_ pane: Pane) {
@@ -28,6 +28,11 @@ enum SystemLinks {
             candidates = ["x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth"]
         case .loginItems:
             candidates = ["x-apple.systempreferences:com.apple.LoginItems-Settings.extension"]
+        case .fullDiskAccess:
+            candidates = ["x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"]
+        case .focus:
+            candidates = ["x-apple.systempreferences:com.apple.Focus-Settings.extension",
+                          "x-apple.systempreferences:com.apple.preference.notifications"]
         }
         for candidate in candidates {
             if let url = URL(string: candidate), NSWorkspace.shared.open(url) { return }

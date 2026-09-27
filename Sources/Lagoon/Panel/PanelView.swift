@@ -4,6 +4,8 @@ import SwiftUI
 struct PanelView: View {
     @Environment(AppState.self) var app
     @Namespace private var tabNamespace
+    /// Solo para redibujar las pestañas al ocultar o mostrar alguna en Ajustes.
+    @AppStorage(Prefs.hiddenTabs) private var hiddenTabs = ""
 
     var body: some View {
         let model = app.notch
@@ -93,6 +95,9 @@ struct PanelView: View {
         case .timer: TimerPanelView()
         case .clipboard: ClipboardView()
         case .mirror: MirrorView()
+        case .shortcuts: ShortcutsView()
+        case .system: SystemView()
+        case .claude: ClaudeView()
         }
     }
 }

@@ -17,6 +17,11 @@ struct WingsView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: app.notch.geometry.notchHeight)
+        .overlay(alignment: .trailing) {
+            if content != .privacy {
+                PrivacyDots(vertical: true).padding(.trailing, 3.5)
+            }
+        }
     }
 
     @ViewBuilder
@@ -37,6 +42,12 @@ struct WingsView: View {
             }
         case .charging:
             Icon(.bolt, size: 17, color: Palette.green)
+        case .claude:
+            ClaudeSpinner(size: 16)
+        case .privacy:
+            if let kind = app.privacy.activeKinds.first {
+                Icon(kind.icon, size: 16, color: kind.color)
+            }
         }
     }
 
@@ -57,6 +68,14 @@ struct WingsView: View {
             }
         case .charging:
             ChargingLevel(fontSize: 12, glyph: CGSize(width: 20, height: 10), spacing: 6)
+        case .claude:
+            Text(app.claude.wingLabel)
+                .lagoonFont(12, .semibold)
+                .foregroundStyle(Palette.claude)
+                .lineLimit(1)
+                .frame(maxWidth: 58, alignment: .trailing)
+        case .privacy:
+            PrivacyDots(vertical: false)
         case let .musicPlus(secondary):
             switch secondary {
             case .timer, .pomodoro:
@@ -77,8 +96,53 @@ struct WingsView: View {
                         .monospacedDigit()
                         .foregroundStyle(Palette.green)
                 }
+            case .claude:
+                HStack(spacing: 5) {
+                    ClaudeSpinner(size: 14)
+                    Text(app.claude.wingLabel)
+                        .lagoonFont(11, .semibold)
+                        .foregroundStyle(Palette.claude)
+                        .lineLimit(1)
+                        .frame(maxWidth: 36, alignment: .leading)
+                }
             }
         }
+    }
+}
+
+/// Puntos de privacidad: verde (cámara), naranja (micrófono), rojo (grabación de pantalla).
+struct PrivacyDots: View {
+    @Environment(AppState.self) var app
+    var vertical: Bool
+
+    var body: some View {
+        let kinds = app.privacy.activeKinds
+        let dots = ForEach(kinds, id: \.self) { kind in
+            Circle().fill(kind.color).frame(width: 5, height: 5)
+        }
+        if !kinds.isEmpty {
+            if vertical {
+                VStack(spacing: 2) { dots }
+            } else {
+                HStack(spacing: 4) { dots }
+            }
+        }
+    }
+}
+
+/// Ícono de Claude Code que "respira" mientras trabaja (Core Animation vía SwiftUI repeatForever).
+struct ClaudeSpinner: View {
+    var size: CGFloat
+    @State private var on = false
+
+    var body: some View {
+        Icon(.smartToy, size: size, color: Palette.claude)
+            .opacity(on ? 1 : 0.45)
+            .scaleEffect(on ? 1 : 0.88)
+            .onAppear {
+                guard !Motion.reduced, !AppEnvironment.isSnapshot else { on = true; return }
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { on = true }
+            }
     }
 }
 
@@ -196,6 +260,12 @@ struct WingActivityView: View {
                 Text("Bandeja").lagoonFont(12, .semibold)
             }
             .foregroundStyle(Palette.cyan)
+        case let .shortcutRan(_, ok):
+            HStack(spacing: 6) {
+                Icon(ok ? .checkCircle : .error, size: 15)
+                Text(ok ? "Listo" : "Falló").lagoonFont(12, .semibold)
+            }
+            .foregroundStyle(ok ? Palette.green : Palette.red)
         default:
             EmptyView()
         }
@@ -224,6 +294,12 @@ struct WingActivityView: View {
             Text(app.tray.countDescription)
                 .lagoonFont(12)
                 .foregroundStyle(Palette.secondary)
+        case let .shortcutRan(name, _):
+            Text(name)
+                .lagoonFont(12)
+                .foregroundStyle(Palette.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: 70, alignment: .trailing)
         default:
             EmptyView()
         }
