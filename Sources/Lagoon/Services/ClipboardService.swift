@@ -109,9 +109,6 @@ final class ClipboardService {
         }
         guard let item else { return }
         insert(item)
-        if Prefs.bool(Prefs.showClipboardCopied) {
-            notch?.post(.copied(item.kind))
-        }
     }
 
     private static func classify(_ text: String) -> ClipItem {

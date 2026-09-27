@@ -31,14 +31,19 @@ struct WingsView: View {
     }
 
     var body: some View {
+        let model = app.notch
         HStack(spacing: 0) {
             left
+                .fixedSize()
                 .padding(.leading, showsArtwork ? artworkInset : 12)
+                .reportsWidth { model.reportWing(.wings(content), left: $0) }
             Spacer(minLength: 0)
             right
+                .fixedSize()
                 .padding(.trailing, content == .music ? artworkInset : 12)
+                .reportsWidth { model.reportWing(.wings(content), right: $0) }
         }
-        .frame(height: app.notch.geometry.notchHeight)
+        .frame(height: model.geometry.notchHeight)
     }
 
     @ViewBuilder
@@ -101,6 +106,25 @@ struct WingsView: View {
                 }
             }
         }
+    }
+}
+
+/// Mide el ancho de una vista (para ajustar las alas a su contenido).
+private struct WidthReader: View {
+    let report: (CGFloat) -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { report(proxy.size.width) }
+                .onChange(of: proxy.size.width) { _, width in report(width) }
+        }
+    }
+}
+
+private extension View {
+    func reportsWidth(_ report: @escaping (CGFloat) -> Void) -> some View {
+        background(WidthReader(report: report))
     }
 }
 
@@ -181,13 +205,19 @@ struct WingActivityView: View {
     let activity: LiveActivity
 
     var body: some View {
+        let model = app.notch
         HStack(spacing: 0) {
             left
+                .fixedSize()
+                .padding(.leading, 12)
+                .reportsWidth { model.reportWing(.activity(activity), left: $0) }
             Spacer(minLength: 0)
             right
+                .fixedSize()
+                .padding(.trailing, 12)
+                .reportsWidth { model.reportWing(.activity(activity), right: $0) }
         }
-        .padding(.horizontal, 12)
-        .frame(height: app.notch.geometry.notchHeight)
+        .frame(height: model.geometry.notchHeight)
         .overlay(alignment: .bottom) {
             if activity == .chargerConnected { ChargeFlash() }
         }

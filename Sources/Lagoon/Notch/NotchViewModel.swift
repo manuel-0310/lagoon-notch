@@ -45,6 +45,8 @@ final class NotchViewModel {
     @ObservationIgnored private(set) var currentSpec: ShapeSpec
     @ObservationIgnored private var pointerInside = false
     @ObservationIgnored private var lastTab: PanelTab = .home
+    /// Lo que ocupa de verdad el contenido de cada ala (con su margen exterior), según la vista.
+    @ObservationIgnored private var measuredWings: [String: (left: CGFloat, right: CGFloat)] = [:]
 
     /// Alas en estado continuo (música, timer, carga). Lo aporta `AppState`.
     @ObservationIgnored var wingsProvider: () -> WingContent? = { nil }
@@ -80,14 +82,15 @@ final class NotchViewModel {
                 ? ShapeSpec(width: nw + 12, height: nh + 2, radius: 13, shadow: .hover)
                 : ShapeSpec(width: nw, height: nh, radius: 12, shadow: .none)
         case let .wings(wings):
-            let base = nw + 2 * wings.wingWidth
+            let base = nw + 2 * wingWidth(for: presentation, minimum: wings.wingWidth)
             return isHovering
                 ? ShapeSpec(width: base + 12, height: nh + 2, radius: 15, shadow: .hover)
                 : ShapeSpec(width: base, height: nh, radius: 14, shadow: .none)
         case let .activity(activity):
             switch activity.style {
             case .wing:
-                return ShapeSpec(width: nw + 2 * activity.wingWidth, height: nh, radius: 14, shadow: .none)
+                return ShapeSpec(width: nw + 2 * wingWidth(for: presentation, minimum: activity.wingWidth),
+                                 height: nh, radius: 14, shadow: .none)
             case .block:
                 return ShapeSpec(width: max(activity.blockWidth, nw + 100),
                                  height: nh + 8 + activity.blockContentHeight + 14,
@@ -100,6 +103,25 @@ final class NotchViewModel {
         case .drop:
             return ShapeSpec(width: 480, height: nh + 8 + 104 + 14, radius: 26, shadow: .block)
         }
+    }
+
+    /// Ancho de cada ala: el de diseño o, si el contenido no cabe (un tiempo con horas, "100 %"…),
+    /// lo que mide más una separación, para que nada quede escondido detrás del notch físico.
+    private func wingWidth(for presentation: Presentation, minimum: CGFloat) -> CGFloat {
+        guard let measured = measuredWings[presentation.key] else { return minimum }
+        return max(minimum, ceil(max(measured.left, measured.right) + 6))
+    }
+
+    /// Las alas miden su contenido y lo avisan aquí; si cambia, la forma se ajusta.
+    func reportWing(_ presentation: Presentation, left: CGFloat? = nil, right: CGFloat? = nil) {
+        let key = presentation.key
+        let old = measuredWings[key]
+        var measured = old ?? (left: 0, right: 0)
+        if let left { measured.left = left }
+        if let right { measured.right = right }
+        if let old, abs(old.left - measured.left) < 0.5, abs(old.right - measured.right) < 0.5 { return }
+        measuredWings[key] = measured
+        refresh()
     }
 
     /// Recalcula qué mostrar y anima la forma según la tabla de transiciones.
@@ -219,7 +241,7 @@ final class NotchViewModel {
     /// Zona amplia alrededor del notch: al acercar un archivo aquí se abre el modo "soltar".
     var dropApproachRect: CGRect {
         let frame = geometry.screenFrame
-        let width: CGFloat = 900, height: CGFloat = 320
+        let width: CGFloat = 700, height: CGFloat = 240
         return CGRect(x: frame.midX - width / 2, y: frame.maxY - height, width: width, height: height + 10)
     }
 

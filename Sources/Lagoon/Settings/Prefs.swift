@@ -25,7 +25,6 @@ enum Prefs {
     static let showEvents = "showEvents"
     static let eventLeadMinutes = "eventLeadMinutes"
     static let showReminders = "showReminders"
-    static let showClipboardCopied = "showClipboardCopied"
 
     // Timer
     static let timerSound = "timerSound"
@@ -39,7 +38,6 @@ enum Prefs {
 
     // Bandeja
     static let trayLifetimeMinutes = "trayLifetimeMinutes"
-    static let dropOpensOnDragStart = "dropOpensOnDragStart"
 
     // Clima y reloj
     static let weatherCityName = "weatherCityName"
@@ -71,7 +69,6 @@ enum Prefs {
             showEvents: true,
             eventLeadMinutes: 5,
             showReminders: true,
-            showClipboardCopied: true,
             timerSound: true,
             pomodoroFocusMinutes: 25,
             pomodoroBreakMinutes: 5,
@@ -79,7 +76,6 @@ enum Prefs {
             clipboardEnabled: true,
             clipboardLimit: 50,
             trayLifetimeMinutes: 60,
-            dropOpensOnDragStart: true,
             useFahrenheit: false,
             worldClocks: "America/Mexico_City,America/New_York,Asia/Tokyo",
             mirrorFlip: false,
