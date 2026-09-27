@@ -7,7 +7,8 @@ espejo, reloj mundial, clima, batería de tus dispositivos, volumen y brillo.
 Está hecha en **Swift + SwiftUI** (nativa, sin Electron) y pensada para gastar poco:
 
 - **Sin sondeos**: la música, la batería, el volumen y el calendario funcionan por avisos del sistema.
-  Solo el portapapeles consulta un contador (un entero) dos veces por segundo, porque macOS no avisa.
+  Solo el portapapeles consulta un contador (un entero) dos veces por segundo, porque macOS no avisa,
+  y mientras mantienes pulsado el botón se mira el del arrastre para saber si llevas un archivo.
 - **Animaciones continuas con Core Animation** (la onda de la música la pinta el sistema, no la app).
 - Los relojes y contadores solo se actualizan mientras se ven.
 - La cámara solo se enciende con la pestaña Espejo abierta.

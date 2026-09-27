@@ -39,6 +39,7 @@ enum Prefs {
 
     // Bandeja
     static let trayLifetimeMinutes = "trayLifetimeMinutes"
+    static let dropOpensOnDragStart = "dropOpensOnDragStart"
 
     // Clima y reloj
     static let weatherCityName = "weatherCityName"
@@ -78,6 +79,7 @@ enum Prefs {
             clipboardEnabled: true,
             clipboardLimit: 50,
             trayLifetimeMinutes: 60,
+            dropOpensOnDragStart: true,
             useFahrenheit: false,
             worldClocks: "America/Mexico_City,America/New_York,Asia/Tokyo",
             mirrorFlip: false,

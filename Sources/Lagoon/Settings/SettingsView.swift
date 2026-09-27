@@ -33,6 +33,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.clipboardEnabled) private var clipboardEnabled = true
     @AppStorage(Prefs.clipboardLimit) private var clipboardLimit = 50
     @AppStorage(Prefs.trayLifetimeMinutes) private var trayLifetime = 60
+    @AppStorage(Prefs.dropOpensOnDragStart) private var dropOpensOnDragStart = true
     @AppStorage(Prefs.useFahrenheit) private var useFahrenheit = false
     @AppStorage(Prefs.worldClocks) private var worldClocks = ""
 
@@ -124,6 +125,12 @@ struct SettingsView: View {
                     Text("3 horas").tag(180)
                     Text("1 día").tag(1440)
                 }
+                Toggle("Abrir la bandeja en cuanto arrastras un archivo", isOn: $dropOpensOnDragStart)
+                Text(dropOpensOnDragStart
+                     ? "El notch muestra las zonas para soltar apenas empiezas a arrastrar desde Finder."
+                     : "El notch muestra las zonas para soltar cuando acercas el archivo a la parte de arriba.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Clima y reloj") {

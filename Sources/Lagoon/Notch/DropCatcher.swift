@@ -2,17 +2,17 @@ import AppKit
 
 /// Ventana invisible que recibe los archivos que se sueltan sobre el notch.
 ///
-/// Se muestra solo mientras se arrastra un archivo cerca del notch, justo encima de las dos
-/// zonas (bandeja y AirDrop). Una ventana recién mostrada siempre es un destino válido para
-/// el arrastre, a diferencia de una que tenía desactivado el ratón al empezar.
+/// Se crea oculta al arrancar y se muestra solo mientras el modo "soltar" está abierto, justo
+/// encima de las dos zonas (bandeja y AirDrop). Una ventana recién mostrada siempre es un
+/// destino válido para el arrastre, a diferencia de una que tenía desactivado el ratón al empezar.
 final class DropCatcherPanel: NSPanel {
     let catcherView = DropCatcherView()
 
-    init() {
-        super.init(contentRect: .zero,
+    init(frame: CGRect) {
+        super.init(contentRect: frame,
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered,
-                   defer: true)
+                   defer: false)
         isOpaque = false
         // Casi transparente (no del todo: las zonas 100 % transparentes dejan pasar el ratón).
         backgroundColor = NSColor(white: 0, alpha: 0.001)
