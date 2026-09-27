@@ -11,13 +11,16 @@ final class NotchPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
+        // `isFloatingPanel` cambia el nivel a "flotante" (debajo de la barra de menús), así que va
+        // antes de fijar el nivel. Por encima de la barra, las pestañas junto al notch se ven y
+        // reciben los clics.
+        isFloatingPanel = true
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         isMovable = false
         isMovableByWindowBackground = false
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
-        isFloatingPanel = true
         becomesKeyOnlyIfNeeded = true
         ignoresMouseEvents = true
         animationBehavior = .none
